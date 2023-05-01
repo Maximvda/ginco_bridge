@@ -6,7 +6,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include "can_driver.h"
-#include "config.h"
+#include "config_driver.h"
 
 static Device switch_module;
 

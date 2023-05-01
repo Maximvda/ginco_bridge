@@ -3,7 +3,7 @@
 
 #include <string>
 
-#include "config.h"
+#include "config_driver.h"
 #include "esp_log.h"
 #include "can_driver.h"
 

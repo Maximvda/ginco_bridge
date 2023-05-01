@@ -1,4 +1,4 @@
-#include "config.h"
+#include "config_driver.h"
 #include "nvs_flash.h"
 #include "esp_log.h"
 
@@ -31,5 +31,18 @@ uint8_t config::get_key(const char* key){
 
 void config::set_key(const char* key, uint8_t value){
     nvs_set_i8(my_handle, key, value);
+    nvs_commit(my_handle);
+}
+
+char* config::get_string(const char* key, size_t length){
+    char* savedData = NULL;
+    length = sizeof(savedData);
+    nvs_get_str(my_handle, key, savedData, &length);
+    length = sizeof(savedData);
+    return savedData;
+}
+
+void config::set_string(const char* key, const char* value){
+    nvs_set_str(my_handle, key, value);
     nvs_commit(my_handle);
 }
