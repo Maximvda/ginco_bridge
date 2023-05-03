@@ -4,6 +4,9 @@
 #include "stdint.h"
 #include "nvs_flash.h"
 
+#define CONFIG_KEY_SSID "WiFi_SSID"
+#define CONFIG_KEY_PASS "WiFi_PASS"
+
 namespace config {
     void init();
     uint8_t get_key(const char* key);

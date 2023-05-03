@@ -1,9 +1,13 @@
 #include "config_driver.h"
+
+#include <string.h>
+
 #include "nvs_flash.h"
 #include "esp_log.h"
 
 const static char* TAG = "config";
 static nvs_handle_t my_handle;
+static char string_buffer[258] {0};
 
 void config::init(){
     // Initialize NVS
@@ -35,11 +39,10 @@ void config::set_key(const char* key, uint8_t value){
 }
 
 char* config::get_string(const char* key, size_t length){
-    char* savedData = NULL;
-    length = sizeof(savedData);
-    nvs_get_str(my_handle, key, savedData, &length);
-    length = sizeof(savedData);
-    return savedData;
+    memset(string_buffer, 0, sizeof(string_buffer));
+    nvs_get_str(my_handle, key, string_buffer, &length);
+    length = sizeof(string_buffer);
+    return string_buffer;
 }
 
 void config::set_string(const char* key, const char* value){

@@ -2,43 +2,42 @@
 
 #include <stdio.h>
 #include <atomic>
+#include "string.h"
 
-#include "esp_wifi_types.h"
-#include "esp_wifi.h"
-#include "esp_event_loop.h"
+#include "esp_log.h"
 
 #include "config_driver.h"
 #include "ip_interface.h"
+#include "event_list.h"
+#include "http_client.h"
+
+static const char *TAG = "Con manager";
 
 using namespace ip_interface;
 
-
-static WifiApIpInterface wifiApIpInterface;
-static WifiStaIpInterface wifiStaIpInterface;
-static IpInterface * const ipInterfaces[] = {&wifiApIpInterface, &wifiStaIpInterface};
-
-class CConnectionManagerBase;
-
-static std::atomic<CConnectionManagerBase*> DriverInstance;
-
-static eAction_t driverCallback(SignaList signal, adapter_t iface)
-{
-    eAction_t result = eAction_t::eActionNone;
-    if (DriverInstance == nullptr)
-        return result;
-    switch(signal){
-        case SIGNAL_IPDRIVER_DOWN:
-            DriverInstance.OnDriverDown();
+static void event_callback(SignaList event, eAdapterType type){
+    ESP_LOGI(TAG, "Got event callback %i", event);
+    switch (event){
+        case SIGNAL_IPDRIVER_CONNECTED:
+            if (type == eAdapterType::ADAPTER_AP){
+                http_client::init();
+            }
+            break;
+        default:
+            break;
     }
-    return result;
 }
 
 void connection_manager::init(){
-    ip_interface::init()
+    char* ssid;
+    size_t length {0};
+    ssid = config::get_string(CONFIG_KEY_SSID, length);
+    if (length == 0){
+        ESP_LOGW(TAG, "WiFi not yet configured, starting AP mode");
+        ip_interface::init(eAdapterType::ADAPTER_AP, event_callback);
+    }
 }
 
-bool connection_manager::start(eConnectionType type){
-    switch(type){
-
-    }
+void connection_manager::start(eAdapterType type){
+    ip_interface::swap(type);
 }

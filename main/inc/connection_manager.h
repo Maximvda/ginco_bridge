@@ -2,6 +2,7 @@
 #define __CONNECTION_MANAGER_H_
 
 #include "stdint.h"
+#include "ip_interface.h"
 
 namespace connection_manager {
     enum class eConnectionType {
@@ -10,7 +11,7 @@ namespace connection_manager {
     };
 
     void init();
-    bool start(eConnectionType type);
+    void start(ip_interface::eAdapterType type);
 }
 
 #endif

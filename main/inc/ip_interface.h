@@ -3,7 +3,35 @@
 
 #include "stdint.h"
 #include "event_list.h"
+#include "esp_wifi.h"
 
+namespace ip_interface {
+
+    enum class eAdapterType {
+        ADAPTER_STA,
+        ADAPTER_AP,
+    };
+
+    typedef void (*IpDriverCallback)(SignaList, eAdapterType);
+
+    void init(eAdapterType type, IpDriverCallback);
+    void swap(eAdapterType type);
+}
+
+class IpInterface {
+    private:
+        wifi_config_t config;
+    public: 
+        virtual void start() = 0;
+        virtual void swap() = 0;
+        virtual void event_handler(int32_t event_id, void* event_data) = 0;
+        virtual ~IpInterface() {};
+        ip_interface::eAdapterType ip_type {0};
+    protected:
+        void connected(ip_interface::eAdapterType type);
+};
+
+/*
 static constexpr int CONNECTED_BIT = BIT0;
 
 namespace ip_interface {
@@ -116,5 +144,5 @@ class IpInterface {
         uint32_t LastError ;
 
 }
-
+*/
 #endif
