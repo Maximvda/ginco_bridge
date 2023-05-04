@@ -1,28 +1,33 @@
 #include "ip_interface.h"
 
+#include <atomic>
 #include "string.h"
 #include "esp_wifi.h"
 #include "esp_log.h"
 #include "esp_mac.h"
 #include "config_driver.h"
+#include "wifi_utils.h"
 
 static const char *TAG = "Ip interface";
 
 class WiFiApInterface : public IpInterface {
 private:
     wifi_config_t config;
-public: 
+public:
     virtual void start();
-    virtual void swap();
+    virtual void stop();
     virtual void event_handler(int32_t event_id, void* event_data);
 };
 
 class WiFiStaInterface : public IpInterface {
 private:
+    std::atomic_int failures;
+    std::atomic_bool started;
+    std::atomic_bool config_pending;
     wifi_config_t config;
-public: 
+public:
     virtual void start();
-    virtual void swap();
+    virtual void stop();
     virtual void event_handler(int32_t event_id, void* event_data);
 };
 
@@ -98,30 +103,17 @@ void IpInterface::connected(eAdapterType type){
 
 
 void WiFiApInterface::start(){
-    ip_type = eAdapterType::ADAPTER_AP;
-    esp_netif_create_default_wifi_ap();
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-
-    esp_wifi_get_config(WIFI_IF_AP, &config);
-    config.ap.authmode = WIFI_AUTH_OPEN;
-    sprintf((char*) config.ap.ssid, "ginco_bridge");
-
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &config));
-    ESP_ERROR_CHECK(esp_wifi_start());
-
+    wifi_config_t station_config  = {};
+    ESP_ERROR_CHECK(wifi_utils::setMode(WIFI_MODE_STA));
+    ESP_ERROR_CHECK(wifi_utils::getConfig(WIFI_IF_STA, &station_config));
+    sprintf((char*) station_config.ap.ssid, "ginco_bridge");
+    station_config.sta.password[0] = 0;
+    ESP_ERROR_CHECK(wifi_utils::setConfig(WIFI_IF_STA, &station_config));
+    ESP_ERROR_CHECK(wifi_utils::startWifi());
     ESP_LOGI(TAG, "WiFi AP init done.");
 };
 
-void WiFiApInterface::swap(){
-    //esp_wifi_stop();
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &config));
-    ESP_ERROR_CHECK(esp_wifi_start());
-
-    ESP_LOGI(TAG, "WiFi AP swap done.");
-}
+void WiFiApInterface::stop(){ESP_ERROR_CHECK(esp_wifi_stop());}
 
 void WiFiApInterface::event_handler(int32_t event_id, void* event_data){
     switch(event_id){
@@ -142,36 +134,16 @@ void WiFiApInterface::event_handler(int32_t event_id, void* event_data){
 }
 
 void WiFiStaInterface::start(){
-    ip_type = eAdapterType::ADAPTER_STA;
-    esp_netif_create_default_wifi_sta();
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-
-    esp_wifi_get_config(WIFI_IF_STA, &config);
-    sprintf((char*) config.sta.ssid, config::get_string(CONFIG_KEY_SSID, 0));
-    sprintf((char*) config.sta.password, config::get_string(CONFIG_KEY_PASS, 0));
-
-    ESP_LOGI(TAG, "SSID: %s", (char*) config.sta.ssid);
-
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &config));
-    ESP_ERROR_CHECK(esp_wifi_start());
-
-    ESP_LOGI(TAG, "WiFi STA done.");
+    ESP_ERROR_CHECK(wifi_utils::setMode(WIFI_MODE_STA));
+    if (config_pending){
+        ESP_ERROR_CHECK(wifi_utils::setConfig(WIFI_IF_STA, config));
+        config_pending = false;
+    }
+    ESP_ERROR_CHECK(wifi_utils::startWifi());
+    started = true;
 };
 
-void WiFiStaInterface::swap(){
-    esp_wifi_get_config(WIFI_IF_STA, &config);
-    sprintf((char*) config.sta.ssid, config::get_string(CONFIG_KEY_SSID, 0));
-    sprintf((char*) config.sta.password, config::get_string(CONFIG_KEY_PASS, 0));
-
-    ESP_LOGI(TAG, "SSID: %s", (char*) config.sta.ssid);
-    ESP_LOGI(TAG, "pass: %s", (char*) config.sta.password);
-    //esp_wifi_stop();
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &config));
-    ESP_ERROR_CHECK(esp_wifi_start());
-}
+void WiFiStaInterface::stop(){ESP_ERROR_CHECK(esp_wifi_stop()); started = false;}
 
 void WiFiStaInterface::event_handler(int32_t event_id, void* event_data){
     ESP_LOGI(TAG, "Client event %lu", event_id);
