@@ -2,9 +2,10 @@
 #define __HTTP_CLIENT_H_
 
 #include "stdint.h"
+#include "esp_err.h"
 
-namespace http_client {
-    void init();
+namespace socket_listener {
+    esp_err_t init(void);
 }
 
 

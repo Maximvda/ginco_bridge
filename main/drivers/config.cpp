@@ -7,7 +7,7 @@
 
 const static char* TAG = "config";
 static nvs_handle_t my_handle;
-static char string_buffer[258] {0};
+static char string_buffer[160] {0};
 
 void config::init(){
     // Initialize NVS
@@ -38,11 +38,9 @@ void config::set_key(const char* key, uint8_t value){
     nvs_commit(my_handle);
 }
 
-char* config::get_string(const char* key, size_t length){
-    memset(string_buffer, 0, sizeof(string_buffer));
-    nvs_get_str(my_handle, key, string_buffer, &length);
-    length = sizeof(string_buffer);
-    return string_buffer;
+char* config::get_string(const char* key){
+    size_t length = static_cast<size_t>(sizeof(string_buffer));
+    return nvs_get_str(my_handle, key, string_buffer, &length) == ESP_OK ? string_buffer : NULL;
 }
 
 void config::set_string(const char* key, const char* value){

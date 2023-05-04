@@ -1,5 +1,6 @@
 #include "ip_interface.h"
 
+#include <atomic>
 #include "string.h"
 #include "esp_wifi.h"
 #include "esp_log.h"
@@ -20,11 +21,13 @@ public:
 class WiFiStaInterface : public IpInterface {
 private:
     wifi_config_t config;
+    std::atomic_bool config_pending {false};
     void handleDisconnect(wifi_err_reason_t reason);
 public:
     virtual void start();
     virtual void swap();
     virtual void event_handler(int32_t event_id, void* event_data);
+    void setSsid(const char* ssid, const char* pass);
 };
 
 static WiFiApInterface wifiInterface;
@@ -75,7 +78,6 @@ void ip_interface::init(eAdapterType type, IpDriverCallback cb){
         activeHandler = ipInterfaces[0];
     } else {
         activeHandler = ipInterfaces[1];
-        esp_netif_create_default_wifi_sta();
     }
 
     activeHandler->start();
@@ -87,7 +89,6 @@ void ip_interface::swap(eAdapterType type){
     } else {
         activeHandler = ipInterfaces[1];
     }
-
     activeHandler->swap();
 }
 
@@ -116,7 +117,7 @@ void WiFiApInterface::start(){
 };
 
 void WiFiApInterface::swap(){
-    //esp_wifi_stop();
+    esp_wifi_stop();
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &config));
     ESP_ERROR_CHECK(esp_wifi_start());
@@ -126,10 +127,14 @@ void WiFiApInterface::swap(){
 
 void WiFiApInterface::event_handler(int32_t event_id, void* event_data){
     switch(event_id){
+        case WIFI_EVENT_AP_START:
+            ESP_LOGI(TAG, "TODO: start config listener");
+            break;
         case WIFI_EVENT_AP_STACONNECTED:{
             wifi_event_ap_staconnected_t* event = (wifi_event_ap_staconnected_t*) event_data;
             ESP_LOGI(TAG, "station "MACSTR" join, AID=%d", MAC2STR(event->mac), event->aid);
             add_event(ip_type, SIGNAL_IPDRIVER_CONNECTED);
+            wifiStaInterface.setSsid("test", "test2");
             break;
         }
         case WIFI_EVENT_AP_STADISCONNECTED:{
@@ -147,28 +152,18 @@ void WiFiStaInterface::start(){
     esp_netif_create_default_wifi_sta();
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-
-    esp_wifi_get_config(WIFI_IF_STA, &config);
-    sprintf((char*) config.sta.ssid, config::get_string(CONFIG_KEY_SSID, 0));
-    sprintf((char*) config.sta.password, config::get_string(CONFIG_KEY_PASS, 0));
-
-    ESP_LOGI(TAG, "SSID: %s", (char*) config.sta.ssid);
-
+    if(config_pending){
+        ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &config));
+        config_pending = false;
+    }
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &config));
     ESP_ERROR_CHECK(esp_wifi_start());
 
     ESP_LOGI(TAG, "WiFi STA done.");
 };
 
 void WiFiStaInterface::swap(){
-    esp_wifi_get_config(WIFI_IF_STA, &config);
-    sprintf((char*) config.sta.ssid, config::get_string(CONFIG_KEY_SSID, 0));
-    sprintf((char*) config.sta.password, config::get_string(CONFIG_KEY_PASS, 0));
-
-    ESP_LOGI(TAG, "SSID: %s", (char*) config.sta.ssid);
-    ESP_LOGI(TAG, "pass: %s", (char*) config.sta.password);
-    //esp_wifi_stop();
+    esp_wifi_stop();
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &config));
     ESP_ERROR_CHECK(esp_wifi_start());
@@ -183,16 +178,43 @@ void WiFiStaInterface::event_handler(int32_t event_id, void* event_data){
         case WIFI_EVENT_STA_CONNECTED:
             add_event(eAdapterType::ADAPTER_STA, SIGNAL_IPDRIVER_CONNECTED);
             break;
-        case WIFI_EVENT_STA_DISCONNECTED:
+        case WIFI_EVENT_STA_DISCONNECTED:{
             add_event(eAdapterType::ADAPTER_STA, SIGNAL_IPDRIVER_DISCONNECTED);
             wifi_event_sta_disconnected_t* event = (wifi_event_sta_disconnected_t*) event_data;
-            handleDisconnect(event->reason);
+            ESP_LOGI(TAG, "WiFi reason: %u", event->reason);
+            handleDisconnect(static_cast<wifi_err_reason_t>(event->reason));
             break;
+        }
         default:
             break;
     }
 }
 
 void WiFiStaInterface::handleDisconnect(wifi_err_reason_t reason){
+    switch(reason){
+        case WIFI_REASON_BEACON_TIMEOUT:
+        case WIFI_REASON_NO_AP_FOUND:
+        case WIFI_REASON_AUTH_FAIL:
+        case WIFI_REASON_ASSOC_FAIL:
+        case WIFI_REASON_HANDSHAKE_TIMEOUT:
+        case WIFI_REASON_CONNECTION_FAIL:
+        case WIFI_REASON_AP_TSF_RESET:
+        case WIFI_REASON_ROAMING:
+        case WIFI_REASON_ASSOC_COMEBACK_TIME_TOO_LONG:
+            add_event(ip_type, SIGNAL_IPDRIVER_CONNECTION_ERROR);
+            break;
+        default:
+            break;
+    }
+}
 
+void ip_interface::setSsidPass(char* ssid, char* pass){
+    wifiStaInterface.setSsid(ssid, pass);
+}
+
+void WiFiStaInterface::setSsid(const char * ssid, const char * pass) {
+    ESP_ERROR_CHECK(esp_wifi_get_config(WIFI_IF_STA, &config));
+    strcpy( (char  *) config.sta.ssid, ssid);
+    strcpy( (char  *) config.sta.password, pass);
+    config_pending = true;
 }

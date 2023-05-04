@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package ginco;
+
+
+message Upgrade {
+	uint32 device_id = 1;
+	uint32 image_size = 2;
+}
+
+message Command {
+	oneof command {
+		Upgrade upgrade = 1;
+	}
+}
+
+message Commands {
+	repeated Command commands = 1;
+}

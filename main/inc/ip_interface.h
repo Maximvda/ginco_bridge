@@ -16,6 +16,7 @@ namespace ip_interface {
 
     void init(eAdapterType type, IpDriverCallback);
     void swap(eAdapterType type);
+    void setSsidPass(char* ssid, char* pass);
 }
 
 class IpInterface {
