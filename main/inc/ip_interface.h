@@ -21,14 +21,14 @@ namespace ip_interface {
 class IpInterface {
     private:
         wifi_config_t config;
-    public: 
+    public:
         virtual void start() = 0;
         virtual void swap() = 0;
         virtual void event_handler(int32_t event_id, void* event_data) = 0;
         virtual ~IpInterface() {};
         ip_interface::eAdapterType ip_type {0};
     protected:
-        void connected(ip_interface::eAdapterType type);
+        void add_event(ip_interface::eAdapterType type, SignaList event);
 };
 
 /*

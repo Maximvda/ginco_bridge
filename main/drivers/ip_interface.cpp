@@ -11,7 +11,7 @@ static const char *TAG = "Ip interface";
 class WiFiApInterface : public IpInterface {
 private:
     wifi_config_t config;
-public: 
+public:
     virtual void start();
     virtual void swap();
     virtual void event_handler(int32_t event_id, void* event_data);
@@ -20,7 +20,8 @@ public:
 class WiFiStaInterface : public IpInterface {
 private:
     wifi_config_t config;
-public: 
+    void handleDisconnect(wifi_err_reason_t reason);
+public:
     virtual void start();
     virtual void swap();
     virtual void event_handler(int32_t event_id, void* event_data);
@@ -90,9 +91,9 @@ void ip_interface::swap(eAdapterType type){
     activeHandler->swap();
 }
 
-void IpInterface::connected(eAdapterType type){
+void IpInterface::add_event(eAdapterType type, SignaList event){
     if (driver_callback != nullptr){
-        return driver_callback(SIGNAL_IPDRIVER_CONNECTED, type);
+        return driver_callback(event, type);
     }
 }
 
@@ -128,7 +129,7 @@ void WiFiApInterface::event_handler(int32_t event_id, void* event_data){
         case WIFI_EVENT_AP_STACONNECTED:{
             wifi_event_ap_staconnected_t* event = (wifi_event_ap_staconnected_t*) event_data;
             ESP_LOGI(TAG, "station "MACSTR" join, AID=%d", MAC2STR(event->mac), event->aid);
-            connected(ip_type);
+            add_event(ip_type, SIGNAL_IPDRIVER_CONNECTED);
             break;
         }
         case WIFI_EVENT_AP_STADISCONNECTED:{
@@ -175,5 +176,23 @@ void WiFiStaInterface::swap(){
 
 void WiFiStaInterface::event_handler(int32_t event_id, void* event_data){
     ESP_LOGI(TAG, "Client event %lu", event_id);
-    //WIFI_EVENT_STA_DISCONNECTED
+    switch(event_id){
+        case WIFI_EVENT_STA_START:
+            esp_wifi_connect();
+            break;
+        case WIFI_EVENT_STA_CONNECTED:
+            add_event(eAdapterType::ADAPTER_STA, SIGNAL_IPDRIVER_CONNECTED);
+            break;
+        case WIFI_EVENT_STA_DISCONNECTED:
+            add_event(eAdapterType::ADAPTER_STA, SIGNAL_IPDRIVER_DISCONNECTED);
+            wifi_event_sta_disconnected_t* event = (wifi_event_sta_disconnected_t*) event_data;
+            handleDisconnect(event->reason);
+            break;
+        default:
+            break;
+    }
+}
+
+void WiFiStaInterface::handleDisconnect(wifi_err_reason_t reason){
+
 }
