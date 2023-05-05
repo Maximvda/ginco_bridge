@@ -25,6 +25,7 @@ void config::init(){
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Error (%s) opening NVS handle!\n", esp_err_to_name(err));
     }
+    ESP_LOGI(TAG, "init done");
 }
 
 uint8_t config::get_key(const char* key){

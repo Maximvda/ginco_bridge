@@ -50,12 +50,12 @@ bool Receiver::init(Ginco__Command * command) {
 		ESP_LOGE(TAG, "Passive OTA partition not found");
 		return false;
 	}
-	if (command->upgrade->imagesize > otaPartition->size){
+	if (command->upgrade->image_size > otaPartition->size){
 		ESP_LOGE(TAG, "Image size too large");
 		return false;
 	}
 
-	ESP_ERROR_CHECK(esp_ota_begin(otaPartition, command->upgrade->imagesize, &update_handle));
+	ESP_ERROR_CHECK(esp_ota_begin(otaPartition, command->upgrade->image_size, &update_handle));
 	ESP_LOGI(TAG, "esp_ota_begin succeeded");
 	return true;
 };

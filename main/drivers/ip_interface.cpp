@@ -13,8 +13,8 @@ class WiFiApInterface : public IpInterface {
 private:
     wifi_config_t config;
 public:
+    virtual void init();
     virtual void start();
-    virtual void swap();
     virtual void event_handler(int32_t event_id, void* event_data);
 };
 
@@ -24,8 +24,8 @@ private:
     std::atomic_bool config_pending {false};
     void handleDisconnect(wifi_err_reason_t reason);
 public:
+    virtual void init();
     virtual void start();
-    virtual void swap();
     virtual void event_handler(int32_t event_id, void* event_data);
     void setSsid(const char* ssid, const char* pass);
 };
@@ -54,7 +54,8 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
 void ip_interface::init(eAdapterType type, IpDriverCallback cb){
     driver_callback = cb;
     ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    ipInterfaces[0]->init();
+    ipInterfaces[1]->init();
 
     ESP_ERROR_CHECK(
         esp_event_handler_instance_register(
@@ -83,13 +84,13 @@ void ip_interface::init(eAdapterType type, IpDriverCallback cb){
     activeHandler->start();
 }
 
-void ip_interface::swap(eAdapterType type){
+void ip_interface::start(eAdapterType type){
     if (type == eAdapterType::ADAPTER_AP){
         activeHandler = ipInterfaces[0];
     } else {
         activeHandler = ipInterfaces[1];
     }
-    activeHandler->swap();
+    activeHandler->start();
 }
 
 void IpInterface::add_event(eAdapterType type, SignaList event){
@@ -98,43 +99,37 @@ void IpInterface::add_event(eAdapterType type, SignaList event){
     }
 }
 
-
-void WiFiApInterface::start(){
+void WiFiApInterface::init(){
     ip_type = eAdapterType::ADAPTER_AP;
     esp_netif_create_default_wifi_ap();
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
-    esp_wifi_get_config(WIFI_IF_AP, &config);
+    ESP_ERROR_CHECK(esp_wifi_get_config(WIFI_IF_AP, &config));
     config.ap.authmode = WIFI_AUTH_OPEN;
     sprintf((char*) config.ap.ssid, "ginco_bridge");
-
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &config));
-    ESP_ERROR_CHECK(esp_wifi_start());
 
     ESP_LOGI(TAG, "WiFi AP init done.");
 };
 
-void WiFiApInterface::swap(){
+void WiFiApInterface::start(){
     esp_wifi_stop();
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &config));
     ESP_ERROR_CHECK(esp_wifi_start());
 
-    ESP_LOGI(TAG, "WiFi AP swap done.");
+    ESP_LOGI(TAG, "WiFi AP started.");
 }
 
 void WiFiApInterface::event_handler(int32_t event_id, void* event_data){
     switch(event_id){
         case WIFI_EVENT_AP_START:
-            ESP_LOGI(TAG, "TODO: start config listener");
+            add_event(ip_type, SIGNAL_IPDRIVER_RUNNING);
             break;
         case WIFI_EVENT_AP_STACONNECTED:{
             wifi_event_ap_staconnected_t* event = (wifi_event_ap_staconnected_t*) event_data;
             ESP_LOGI(TAG, "station "MACSTR" join, AID=%d", MAC2STR(event->mac), event->aid);
             add_event(ip_type, SIGNAL_IPDRIVER_CONNECTED);
-            wifiStaInterface.setSsid("test", "test2");
             break;
         }
         case WIFI_EVENT_AP_STADISCONNECTED:{
@@ -147,39 +142,41 @@ void WiFiApInterface::event_handler(int32_t event_id, void* event_data){
     }
 }
 
-void WiFiStaInterface::start(){
+void WiFiStaInterface::init(){
     ip_type = eAdapterType::ADAPTER_STA;
     esp_netif_create_default_wifi_sta();
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+    ESP_ERROR_CHECK(esp_wifi_get_config(WIFI_IF_STA, &config));
     if(config_pending){
         ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &config));
         config_pending = false;
     }
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    ESP_ERROR_CHECK(esp_wifi_start());
 
     ESP_LOGI(TAG, "WiFi STA done.");
 };
 
-void WiFiStaInterface::swap(){
+void WiFiStaInterface::start(){
     esp_wifi_stop();
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &config));
     ESP_ERROR_CHECK(esp_wifi_start());
+    ESP_LOGI(TAG, "WiFi STA started.");
 }
 
 void WiFiStaInterface::event_handler(int32_t event_id, void* event_data){
     ESP_LOGI(TAG, "Client event %lu", event_id);
     switch(event_id){
         case WIFI_EVENT_STA_START:
-            esp_wifi_connect();
+            add_event(ip_type, SIGNAL_IPDRIVER_RUNNING);
+            if (esp_wifi_connect() == ESP_ERR_WIFI_SSID)
+                add_event(ip_type, SIGNAL_IPDRIVER_CONNECTION_ERROR);
             break;
         case WIFI_EVENT_STA_CONNECTED:
-            add_event(eAdapterType::ADAPTER_STA, SIGNAL_IPDRIVER_CONNECTED);
+            add_event(ip_type, SIGNAL_IPDRIVER_CONNECTED);
             break;
         case WIFI_EVENT_STA_DISCONNECTED:{
-            add_event(eAdapterType::ADAPTER_STA, SIGNAL_IPDRIVER_DISCONNECTED);
+            add_event(ip_type, SIGNAL_IPDRIVER_DISCONNECTED);
             wifi_event_sta_disconnected_t* event = (wifi_event_sta_disconnected_t*) event_data;
             ESP_LOGI(TAG, "WiFi reason: %u", event->reason);
             handleDisconnect(static_cast<wifi_err_reason_t>(event->reason));
@@ -200,6 +197,7 @@ void WiFiStaInterface::handleDisconnect(wifi_err_reason_t reason){
         case WIFI_REASON_CONNECTION_FAIL:
         case WIFI_REASON_AP_TSF_RESET:
         case WIFI_REASON_ROAMING:
+        case WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT:
         case WIFI_REASON_ASSOC_COMEBACK_TIME_TOO_LONG:
             add_event(ip_type, SIGNAL_IPDRIVER_CONNECTION_ERROR);
             break;

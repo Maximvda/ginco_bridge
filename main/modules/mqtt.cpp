@@ -15,12 +15,13 @@ void reset_connection();
 static bool dispatch(uint8_t * ptr, int length);
 static void process(esp_mqtt_event_t& event);
 
-void mqtt::init(){
+bool mqtt::init(){
     esp_mqtt_client_config_t config = {};
     char* mqtt = config::get_string(CONFIG_KEY_MQTT);
     if(mqtt){
-        mqtt::set_url(mqtt);
+        return mqtt::set_url(mqtt);
     }
+    return false;
 }
 
 static bool dispatchRequest(Ginco__Command* command){
@@ -89,7 +90,7 @@ bool mqtt::set_url(char* url){
     mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
     esp_mqtt_client_register_event(
         mqtt_client,
-        ESP_EVENT_ANY_ID,
+        static_cast<esp_mqtt_event_id_t>(ESP_EVENT_ANY_ID),
         mqtt_event_handler,
         NULL);
     if(mqtt_client == NULL){
@@ -102,7 +103,7 @@ bool mqtt::set_url(char* url){
 void reset_connection(){
     if(!mqtt_client)
         return;
-    ESP_ERROR_CHECK(esp_mqtt_client_destroy(mqttclient));
+    ESP_ERROR_CHECK(esp_mqtt_client_destroy(mqtt_client));
     connected = false;
     mqtt_client = NULL;
 }

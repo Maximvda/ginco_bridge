@@ -15,7 +15,7 @@ namespace ip_interface {
     typedef void (*IpDriverCallback)(SignaList, eAdapterType);
 
     void init(eAdapterType type, IpDriverCallback);
-    void swap(eAdapterType type);
+    void start(eAdapterType type);
     void setSsidPass(char* ssid, char* pass);
 }
 
@@ -23,8 +23,8 @@ class IpInterface {
     private:
         wifi_config_t config;
     public:
+        virtual void init() = 0;
         virtual void start() = 0;
-        virtual void swap() = 0;
         virtual void event_handler(int32_t event_id, void* event_data) = 0;
         virtual ~IpInterface() {};
         ip_interface::eAdapterType ip_type {0};

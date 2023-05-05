@@ -10,6 +10,7 @@
 #include "esp_wifi.h"
 #include "ip_interface.h"
 #include "config_driver.h"
+#include "connection_manager.h"
 
 using namespace socket_listener;
 
@@ -19,9 +20,8 @@ typedef enum {
     CONFIGURE
 } commands_t;
 
-static const char *TAG = "Con manager";
-static uint16_t ap_count;
-static wifi_ap_record_t* records;
+static const char *TAG = "socket listener";
+static wifi_ap_record_t records[25];
 
 static void config_listener_task(void *pvParameters);
 
@@ -53,7 +53,6 @@ static bool configure(int sock) {
 
     std::unique_ptr<char[]> password = nullptr;
     std::unique_ptr<char[]> mqtt = nullptr;
-    uint32_t tcpto = 0;
     auto ssid = readItem(sock);
     if (ssid) {
         password = readItem(sock);
@@ -130,24 +129,17 @@ static int compareRssi(const void* first, const void* second) {
 }
 
 static void getSsids() {
-    ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
-    if (ap_count > 255) {
-        ap_count = 255;
-    }
-    records = (wifi_ap_record_t*)calloc(ap_count, sizeof(wifi_ap_record_t));
+    uint16_t ap_count {25};
     ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&ap_count, records));
-    qsort(records, ap_count, sizeof(wifi_ap_record_t), compareRssi);
+    qsort(records, 25, sizeof(wifi_ap_record_t), compareRssi);
 }
 
 static void terminate(int listen_sock) {
-    if (records) {
-        free(records);
-    }
     if (listen_sock >= 0) {
         close(listen_sock);
     }
     vTaskDelay(pdMS_TO_TICKS(500));
-    ESP_LOGE(TAG, "Verify installation todo");
+    connection_manager::start(ip_interface::eAdapterType::ADAPTER_STA);
     vTaskDelete(NULL);
     return;
 }
