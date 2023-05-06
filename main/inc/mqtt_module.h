@@ -9,7 +9,6 @@
 
 namespace mqtt {
     bool init();
-    void event_handler(void *handler_args, esp_event_base_t base,int32_t event_id, void *event_data);
     void send_message(const char *data);
     bool connected(void);
     bool set_url(char* url);

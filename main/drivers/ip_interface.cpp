@@ -11,7 +11,6 @@ static const char *TAG = "Ip interface";
 
 class WiFiApInterface : public IpInterface {
 private:
-    wifi_config_t config;
 public:
     virtual void init();
     virtual void start();
@@ -20,7 +19,6 @@ public:
 
 class WiFiStaInterface : public IpInterface {
 private:
-    wifi_config_t config;
     std::atomic_bool config_pending {false};
     void handleDisconnect(wifi_err_reason_t reason);
 public:
@@ -32,6 +30,7 @@ public:
 
 static WiFiApInterface wifiInterface;
 static WiFiStaInterface wifiStaInterface;
+static wifi_config_t wifi_config;
 static IpInterface* const ipInterfaces[] = {&wifiInterface, &wifiStaInterface};
 static IpInterface* activeHandler;
 static ip_interface::IpDriverCallback driver_callback = nullptr;
@@ -54,6 +53,9 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
 void ip_interface::init(eAdapterType type, IpDriverCallback cb){
     driver_callback = cb;
     ESP_ERROR_CHECK(esp_netif_init());
+    const wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+    ESP_ERROR_CHECK(esp_wifi_get_config(WIFI_IF_AP, &wifi_config));
     ipInterfaces[0]->init();
     ipInterfaces[1]->init();
 
@@ -102,12 +104,11 @@ void IpInterface::add_event(eAdapterType type, SignaList event){
 void WiFiApInterface::init(){
     ip_type = eAdapterType::ADAPTER_AP;
     esp_netif_create_default_wifi_ap();
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-
-    ESP_ERROR_CHECK(esp_wifi_get_config(WIFI_IF_AP, &config));
-    config.ap.authmode = WIFI_AUTH_OPEN;
-    sprintf((char*) config.ap.ssid, "ginco_bridge");
+    wifi_config.ap.authmode = WIFI_AUTH_OPEN;
+    if (wifi_config.ap.ssid[0] == 0){
+        sprintf((char*) wifi_config.ap.ssid, "ginco_bridge");
+        ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
+    }
 
     ESP_LOGI(TAG, "WiFi AP init done.");
 };
@@ -115,9 +116,7 @@ void WiFiApInterface::init(){
 void WiFiApInterface::start(){
     esp_wifi_stop();
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &config));
     ESP_ERROR_CHECK(esp_wifi_start());
-
     ESP_LOGI(TAG, "WiFi AP started.");
 }
 
@@ -145,11 +144,8 @@ void WiFiApInterface::event_handler(int32_t event_id, void* event_data){
 void WiFiStaInterface::init(){
     ip_type = eAdapterType::ADAPTER_STA;
     esp_netif_create_default_wifi_sta();
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-    ESP_ERROR_CHECK(esp_wifi_get_config(WIFI_IF_STA, &config));
     if(config_pending){
-        ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &config));
+        ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
         config_pending = false;
     }
 
@@ -159,7 +155,6 @@ void WiFiStaInterface::init(){
 void WiFiStaInterface::start(){
     esp_wifi_stop();
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &config));
     ESP_ERROR_CHECK(esp_wifi_start());
     ESP_LOGI(TAG, "WiFi STA started.");
 }
@@ -211,8 +206,8 @@ void ip_interface::setSsidPass(char* ssid, char* pass){
 }
 
 void WiFiStaInterface::setSsid(const char * ssid, const char * pass) {
-    ESP_ERROR_CHECK(esp_wifi_get_config(WIFI_IF_STA, &config));
-    strcpy( (char  *) config.sta.ssid, ssid);
-    strcpy( (char  *) config.sta.password, pass);
+    ESP_ERROR_CHECK(esp_wifi_get_config(WIFI_IF_STA, &wifi_config));
+    strcpy( (char  *) wifi_config.sta.ssid, ssid);
+    strcpy( (char  *) wifi_config.sta.password, pass);
     config_pending = true;
 }

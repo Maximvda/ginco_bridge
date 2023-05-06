@@ -24,6 +24,10 @@ bool mqtt::init(){
     return false;
 }
 
+void mqtt::send_message(const char *data){
+    esp_mqtt_client_publish(mqtt_client, "ginco_bridge/status", data, strlen(data), 0, 0);
+}
+
 static bool dispatchRequest(Ginco__Command* command){
     switch(command->command_case){
         case GINCO__COMMAND__COMMAND_UPGRADE:
@@ -45,6 +49,7 @@ void mqtt_event_handler(void *handler_args, esp_event_base_t base,int32_t event_
         ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
         connected = true;
         esp_mqtt_client_subscribe(client, "ginco_bridge/command", 1);
+        mqtt::send_message("version: 0.0.1");
         break;
     case MQTT_EVENT_DISCONNECTED:
         ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");

@@ -21,7 +21,7 @@ typedef enum {
 } commands_t;
 
 static const char *TAG = "socket listener";
-static wifi_ap_record_t records[25];
+static wifi_ap_record_t records[16];
 
 static void config_listener_task(void *pvParameters);
 
@@ -129,9 +129,9 @@ static int compareRssi(const void* first, const void* second) {
 }
 
 static void getSsids() {
-    uint16_t ap_count {25};
+    uint16_t ap_count {16};
     ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&ap_count, records));
-    qsort(records, 25, sizeof(wifi_ap_record_t), compareRssi);
+    qsort(records, 16, sizeof(wifi_ap_record_t), compareRssi);
 }
 
 static void terminate(int listen_sock) {

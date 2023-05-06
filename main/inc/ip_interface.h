@@ -20,8 +20,6 @@ namespace ip_interface {
 }
 
 class IpInterface {
-    private:
-        wifi_config_t config;
     public:
         virtual void init() = 0;
         virtual void start() = 0;
