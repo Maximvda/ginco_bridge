@@ -7,17 +7,19 @@
 #include "can_driver.h"
 
 namespace device {
-    void init();
+    void init(void* pxptr);
+    void init_can_message(driver::can::message_t* message);
 }
 
 
 class Device {
     private:
         Output outputs[TOTAL_GPIO];
-        uint8_t id {0};
+        driver::can::message_t can_mes;
 
     public:
         Device();
+        uint8_t id {0};
         void init();
         void heartbeat();
         void toggle_switch(uint8_t switch_id);

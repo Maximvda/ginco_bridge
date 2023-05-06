@@ -2,16 +2,43 @@
 
 #include "varint_decode.h"
 #include "esp_log.h"
+#include "can_driver.h"
+#include "device.h"
 
 using namespace upgrade;
 
 const char * TAG = "Upgrade";
 static Handler handler;
-static Receiver receiver;
 
-Handler::Handler(void){
-	ESP_LOGI(TAG, "So my remote upgrade works? my handler");
+class OtaReceiver : public Receiver {
+private:
+	const esp_partition_t* otaPartition;
+	esp_ota_handle_t update_handle;
+
+	bool partitionValid(void);
+public:
+	bool init(Ginco__Command* command);
+	bool receive(const uint8_t * data, uint32_t len);
+	void complete();
+	void fail();
 };
+
+class CanReceiver : public Receiver {
+private:
+	driver::can::message_t can_message;
+public:
+	bool init(Ginco__Command* command);
+	bool receive(const uint8_t * data, uint32_t len);
+	void complete();
+	void fail();
+};
+
+static CanReceiver can_receiver;
+static OtaReceiver ota_receiver;
+static Receiver* active_receiver;
+
+
+Handler::Handler(void){};
 
 void Handler::init(const esp_mqtt_event_t& event){
 	uint32_t protoBufLength;
@@ -25,26 +52,30 @@ void Handler::init(const esp_mqtt_event_t& event){
 	if (!command)
 		return;
 
-	if(!receiver.init(command)){
-		receiver.fail();
+	if (command->upgrade->device_id == 0){
+		active_receiver = &ota_receiver;
 	} else {
-		receiver.receive(ptr, event.data_len - processed);
+		active_receiver = &can_receiver;
+	}
+
+	if(!active_receiver->init(command)){
+		active_receiver->fail();
+	} else {
+		active_receiver->receive(ptr, event.data_len - processed);
 	}
     ginco__command__free_unpacked(command, NULL);
 };
 
 void Handler::handle(const esp_mqtt_event_t & event) {
-	receiver.receive(reinterpret_cast<uint8_t *> (event.data), event.data_len);
+	active_receiver->receive(reinterpret_cast<uint8_t *> (event.data), event.data_len);
 };
 
 void Handler::end(){
-	receiver.complete();
+	active_receiver->complete();
 };
 
-Receiver::Receiver(void){};
 
-
-bool Receiver::init(Ginco__Command * command) {
+bool OtaReceiver::init(Ginco__Command * command) {
 	otaPartition = esp_ota_get_next_update_partition(NULL);
 	if (otaPartition == NULL){
 		ESP_LOGE(TAG, "Passive OTA partition not found");
@@ -60,7 +91,7 @@ bool Receiver::init(Ginco__Command * command) {
 	return true;
 };
 
-bool Receiver::partitionValid(void){
+bool OtaReceiver::partitionValid(void){
 	esp_app_desc_t newDescription;
 	const esp_app_desc_t * currentDescription = esp_app_get_description();
 	esp_err_t err = esp_ota_get_partition_description(otaPartition, &newDescription);
@@ -75,12 +106,12 @@ bool Receiver::partitionValid(void){
 	return true;
 };
 
-bool Receiver::receive(const uint8_t * data, uint32_t len) {
+bool OtaReceiver::receive(const uint8_t * data, uint32_t len) {
 	ESP_ERROR_CHECK(esp_ota_write(update_handle, data, len));
 	return true;
 };
 
-void Receiver::complete(){
+void OtaReceiver::complete(){
 	ESP_ERROR_CHECK(esp_ota_end(update_handle));
 	if (!partitionValid())
 		return;
@@ -90,7 +121,63 @@ void Receiver::complete(){
 	esp_restart();
 };
 
-void Receiver::fail(){
+void OtaReceiver::fail(){
 	if(update_handle)
 		esp_ota_end(update_handle);
+};
+
+
+bool CanReceiver::init(Ginco__Command * command) {
+	const esp_partition_t* otaPartition = esp_ota_get_next_update_partition(NULL);
+	if (otaPartition == NULL){
+		ESP_LOGE(TAG, "Passive OTA partition not found");
+		return false;
+	}
+	if (command->upgrade->image_size > otaPartition->size){
+		ESP_LOGE(TAG, "Image size too large");
+		return false;
+	}
+	device::init_can_message(&can_message);
+	return true;
+};
+
+bool CanReceiver::receive(const uint8_t* data, uint32_t len) {
+	uint64_t buffer;
+	uint8_t retries = {0};
+	while (len > 8){
+		len -= 8;
+		buffer = 0;
+		for (int i=0; i < 8; i++){
+			buffer += (*data << 8*i);
+			++data;
+		}
+		can_message.data = buffer;
+		can_message.buffer_size = 8;
+		while (!driver::can::transmit(can_message, true)){
+			retries += 1;
+			ESP_LOGI(TAG, "Retry for upgrade %u", retries);
+		}
+	}
+	buffer = 0;
+	for (int i=0; i < 8; i++){
+		buffer += (*data << 8*i);
+		++data;
+	}
+	can_message.data = buffer;
+	can_message.buffer_size = 8;
+	while (!driver::can::transmit(can_message, true)){
+		retries += 1;
+		ESP_LOGI(TAG, "Retry for upgrade %u", retries);
+	}
+
+	return true;
+};
+
+void CanReceiver::complete(){
+	fail();
+};
+
+void CanReceiver::fail(){
+	// Transmit ending message
+	driver::can::transmit(can_message, true);
 };

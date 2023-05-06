@@ -4,6 +4,7 @@
 #include "esp_log.h"
 #include "ginco.pb-c.h"
 #include "upgrade.h"
+#include "can_driver.h"
 
 static const char *TAG = "Mqtt";
 
@@ -32,6 +33,9 @@ static bool dispatchRequest(Ginco__Command* command){
     switch(command->command_case){
         case GINCO__COMMAND__COMMAND_UPGRADE:
             ESP_LOGI(TAG, "Upgrade received");
+            break;
+        case GINCO__COMMAND__COMMAND_CAN_MESSAGE:
+            driver::can::transmitFromProto(*command->can_message);
             break;
         default:
             break;

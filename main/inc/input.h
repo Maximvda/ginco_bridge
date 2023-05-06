@@ -13,6 +13,7 @@ class Input {
         esp_timer_handle_t hold_timer;
         volatile uint8_t current_press {0};
         volatile bool hold_active {false};
+        driver::can::message_t can_mes;
 
     public:
         Input();
@@ -20,7 +21,6 @@ class Input {
 
         void handle_message(driver::can::message_t can_mes);
 
-        void heartbeat();
         void toggle();
         void set_button(bool value);
         void press_callback();

@@ -48,7 +48,7 @@ void Output::handle_message(driver::can::message_t can_mes){
     }
     // Always aknowledge and return state
     can_mes.ack = true;
-    driver::can::transmit(can_mes, 1, &brightness);
+    driver::can::transmit(can_mes);
 }
 
 void Output::set_pwm(uint32_t level){

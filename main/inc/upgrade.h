@@ -16,21 +16,15 @@ namespace upgrade {
             void handle(const esp_mqtt_event_t& event);
             void end(void);
     };
+};
 
-    class Receiver{
-        private:
-            const esp_partition_t* otaPartition;
-            esp_ota_handle_t update_handle;
-
-            bool partitionValid(void);
-        public:
-            Receiver();
-            bool init(Ginco__Command* command);
-            bool receive(const uint8_t * data, uint32_t len);
-            void complete();
-            void fail();
-    };
-
-}
+class Receiver {
+public:
+	virtual bool init(Ginco__Command* command) = 0;
+	virtual bool receive(const uint8_t * data, uint32_t len) = 0;
+	virtual void complete() = 0;
+	virtual void fail() = 0;
+	virtual ~Receiver() {};
+};
 
 #endif
