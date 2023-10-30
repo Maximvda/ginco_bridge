@@ -5,15 +5,15 @@
 #include "supervisor.hpp"
 
 using namespace app;
-using utils::Message;
-using data::GincoMessage;
 using data::Function;
+using data::GincoMessage;
+using utils::Message;
 
-const static char* TAG = "can thread";
+const static char *TAG = "can thread";
 
 void CanTask::onStart()
 {
-    ESP_LOGI(TAG, "started.");
+	ESP_LOGI(TAG, "started.");
 	can_driver_.init();
 }
 
@@ -22,34 +22,22 @@ void CanTask::onTimeout()
 	can_driver_.tick();
 }
 
-void CanTask::handle(Message& message)
+void CanTask::handle(Message &message)
 {
-	switch (message.event()) {
+	switch (message.event())
+	{
 	case EVENT_CAN_RECEIVED:
 	{
 		if (auto mes = message.takeValue<GincoMessage>())
 		{
 			/*TODO: Handle can frame */
 			/*TODO: CHECK IF FRAME IS FOR THIS DEVICE OR DIFFERENT DEVICE */
-			auto message = mes.get();
-			message.id
-			if (message->function == Function::UPGRADE)
-			{
-				upgrade_handler_.init(*message);
-				return;
-			}
-			if (message->function == Function::FW_IMAGE)
-			{
-				upgrade_handler_.handle(*message);
-				return;
-			}
-			app::taskFinder().ginco().frameReady(*message);
 		}
 		break;
 	}
 	case EVENT_CAN_TRANSMIT:
 	{
-		if(auto mes = message.takeValue<twai_message_t>())
+		if (auto mes = message.takeValue<twai_message_t>())
 		{
 			can_driver_.transmit(*mes.get());
 		}
@@ -58,5 +46,4 @@ void CanTask::handle(Message& message)
 	default:
 		assert(0);
 	}
-
 }

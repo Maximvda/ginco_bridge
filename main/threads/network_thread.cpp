@@ -5,19 +5,18 @@ using utils::Message;
 
 void NetworkTask::onStart()
 {
-    network_man_.init();
+	network_man_.init();
 }
 
 void NetworkTask::onTimeout()
 {
-
 }
 
-void NetworkTask::handle(Message& message)
+void NetworkTask::handle(Message &message)
 {
-	switch (message.event()) {
+	switch (message.event())
+	{
 	default:
 		assert(0);
 	}
-
 }

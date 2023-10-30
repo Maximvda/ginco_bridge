@@ -2,17 +2,15 @@
 
 using app::Device;
 
-static const char* TAG = {"Device"};
+static const char *TAG = {"Device"};
 
 void Device::init()
 {
-    config_driver_.init();
-    id_ = config_driver_.deviceId();
+
 }
 
-void Device::handleMessage(GincoMessage& message)
+void Device::handleMessage(GincoMessage &message)
 {
-
 }
 
 // void Device::toggle_switch(uint8_t switch_id){

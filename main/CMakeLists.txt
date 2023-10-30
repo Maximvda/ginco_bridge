@@ -1,5 +1,4 @@
 file(GLOB private_lib
-    modules/*.cpp
     drivers/*.cpp
     threading/*.cpp
     threads/*.cpp
@@ -19,4 +18,5 @@ idf_component_register(
         "app"
         "drivers"
         "modules"
+        "inc"
 )

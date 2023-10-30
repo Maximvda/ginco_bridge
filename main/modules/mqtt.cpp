@@ -9,43 +9,49 @@
 static const char *TAG = "Mqtt";
 
 static esp_mqtt_client_handle_t mqtt_client;
-static bool connected {false};
+static bool connected{false};
 static upgrade::Handler upgrade_handler;
 
 void reset_connection();
-static bool dispatch(uint8_t * ptr, int length);
-static void process(esp_mqtt_event_t& event);
+static bool dispatch(uint8_t *ptr, int length);
+static void process(esp_mqtt_event_t &event);
 
-bool mqtt::init(){
+bool mqtt::init()
+{
     esp_mqtt_client_config_t config = {};
-    char* mqtt = config::get_string(CONFIG_KEY_MQTT);
-    if(mqtt){
+    char *mqtt = config::get_string(CONFIG_KEY_MQTT);
+    if (mqtt)
+    {
         return mqtt::set_url(mqtt);
     }
     return false;
 }
 
-void mqtt::send_message(const char *data){
+void mqtt::send_message(const char *data)
+{
     esp_mqtt_client_publish(mqtt_client, "ginco_bridge/status", data, strlen(data), 0, 0);
 }
 
-static bool dispatchRequest(Ginco__Command* command){
-    switch(command->command_case){
-        case GINCO__COMMAND__COMMAND_UPGRADE:
-            ESP_LOGI(TAG, "Upgrade received");
-            break;
-        case GINCO__COMMAND__COMMAND_CAN_MESSAGE:
-            driver::can::transmitFromProto(*command->can_message);
-            break;
-        default:
-            break;
+static bool dispatchRequest(Ginco__Command *command)
+{
+    switch (command->command_case)
+    {
+    case GINCO__COMMAND__COMMAND_UPGRADE:
+        ESP_LOGI(TAG, "Upgrade received");
+        break;
+    case GINCO__COMMAND__COMMAND_CAN_MESSAGE:
+        driver::can::transmitFromProto(*command->can_message);
+        break;
+    default:
+        break;
     }
     return true;
 }
 
-void mqtt_event_handler(void *handler_args, esp_event_base_t base,int32_t event_id, void *event_data){
+void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
+{
     ESP_LOGD(TAG, "Event dispatched from event loop base=%s, event_id=%li", base, event_id);
-    esp_mqtt_event_handle_t event = (esp_mqtt_event_handle_t) event_data;
+    esp_mqtt_event_handle_t event = (esp_mqtt_event_handle_t)event_data;
     esp_mqtt_client_handle_t client = event->client;
     switch ((esp_mqtt_event_id_t)event_id)
     {
@@ -70,9 +76,11 @@ void mqtt_event_handler(void *handler_args, esp_event_base_t base,int32_t event_
         ESP_LOGI(TAG, "MQTT_EVENT_PUBLISHED, msg_id=%d", event->msg_id);
         break;
 
-    case MQTT_EVENT_DATA:{
-        if (event->total_data_len == event->data_len) {
-            dispatch(reinterpret_cast<uint8_t *> (event->data), event->data_len);
+    case MQTT_EVENT_DATA:
+    {
+        if (event->total_data_len == event->data_len)
+        {
+            dispatch(reinterpret_cast<uint8_t *>(event->data), event->data_len);
             return;
         }
         process(*event);
@@ -87,9 +95,11 @@ void mqtt_event_handler(void *handler_args, esp_event_base_t base,int32_t event_
     }
 }
 
-bool mqtt::set_url(char* url){
+bool mqtt::set_url(char *url)
+{
     reset_connection();
-    if(url == NULL || strlen(url) == 0){
+    if (url == NULL || strlen(url) == 0)
+    {
         return false;
     }
     char client_id[19] = "ginco_bridge";
@@ -102,45 +112,53 @@ bool mqtt::set_url(char* url){
         static_cast<esp_mqtt_event_id_t>(ESP_EVENT_ANY_ID),
         mqtt_event_handler,
         NULL);
-    if(mqtt_client == NULL){
+    if (mqtt_client == NULL)
+    {
         ESP_LOGE(TAG, "Failed to initialise mqtt client");
         return false;
     }
     return esp_mqtt_client_start(mqtt_client) == ESP_OK;
 }
 
-void reset_connection(){
-    if(!mqtt_client)
+void reset_connection()
+{
+    if (!mqtt_client)
         return;
     ESP_ERROR_CHECK(esp_mqtt_client_destroy(mqtt_client));
     connected = false;
     mqtt_client = NULL;
 }
 
-static bool dispatch(uint8_t * ptr, int length) {
+static bool dispatch(uint8_t *ptr, int length)
+{
     if (!length)
         return false;
 
-    Ginco__Command * command = ginco__command__unpack(NULL, length, ptr);
-    if(!command){
+    Ginco__Command *command = ginco__command__unpack(NULL, length, ptr);
+    if (!command)
+    {
         ESP_LOGI(TAG, "Invalid command received");
         return false;
     }
 
-    if (dispatchRequest(command)) {
+    if (dispatchRequest(command))
+    {
         ginco__command__free_unpacked(command, NULL);
     }
     return true;
 }
 
-static void process(esp_mqtt_event_t& event){
-	if (event.current_data_offset == 0) {
+static void process(esp_mqtt_event_t &event)
+{
+    if (event.current_data_offset == 0)
+    {
         upgrade_handler.init(event);
         return;
-	}
+    }
 
     upgrade_handler.handle(event);
-	if (event.current_data_offset + event.data_len == event.total_data_len) {
-		upgrade_handler.end();
-	}
+    if (event.current_data_offset + event.data_len == event.total_data_len)
+    {
+        upgrade_handler.end();
+    }
 }

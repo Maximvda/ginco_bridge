@@ -16,32 +16,39 @@ static const char *TAG = "Con manager";
 
 using namespace ip_interface;
 
-static uint16_t retry_count {0};
+static uint16_t retry_count{0};
 
-static void event_callback(SignaList event, eAdapterType type){
+static void event_callback(SignaList event, eAdapterType type)
+{
     ESP_LOGI(TAG, "Got event callback %i", event);
-    switch (event){
-        case SIGNAL_IPDRIVER_CONNECTED:
-            if (type == eAdapterType::ADAPTER_STA){
-                if(!mqtt::init()){
-                    connection_manager::start(eAdapterType::ADAPTER_AP);
-                }
+    switch (event)
+    {
+    case SIGNAL_IPDRIVER_CONNECTED:
+        if (type == eAdapterType::ADAPTER_STA)
+        {
+            if (!mqtt::init())
+            {
+                connection_manager::start(eAdapterType::ADAPTER_AP);
             }
-            break;
-        case SIGNAL_IPDRIVER_RUNNING:{
-            if (type == eAdapterType::ADAPTER_AP){
-                socket_listener::init();
-            }
-            break;
         }
-        case SIGNAL_IPDRIVER_CONNECTION_ERROR:
-            ip_interface::start(eAdapterType::ADAPTER_AP);
-            break;
-        default:
-            break;
+        break;
+    case SIGNAL_IPDRIVER_RUNNING:
+    {
+        if (type == eAdapterType::ADAPTER_AP)
+        {
+            socket_listener::init();
+        }
+        break;
+    }
+    case SIGNAL_IPDRIVER_CONNECTION_ERROR:
+        ip_interface::start(eAdapterType::ADAPTER_AP);
+        break;
+    default:
+        break;
     }
 }
 
-void connection_manager::start(eAdapterType type){
+void connection_manager::start(eAdapterType type)
+{
     ip_interface::start(type);
 }

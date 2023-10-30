@@ -6,22 +6,23 @@
 using app::GincoTask;
 using utils::Message;
 
-const static char* TAG = "ginco thread";
+const static char *TAG = "ginco thread";
 
 void GincoTask::onStart()
 {
-    ESP_LOGI(TAG, "started.");
+	ESP_LOGI(TAG, "started.");
+	device_.init();
 }
 
 void GincoTask::onTimeout()
 {
 }
 
-void GincoTask::handle(Message& message)
+void GincoTask::handle(Message &message)
 {
-	switch (message.event()) {
+	switch (message.event())
+	{
 	default:
 		assert(0);
 	}
-
 }
