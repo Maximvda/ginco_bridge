@@ -42,18 +42,6 @@ static void event_callback(SignaList event, eAdapterType type){
     }
 }
 
-void connection_manager::init(){
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-
-    bool configured = config::get_key(CONFIG_KEY_CONFIGURED) == 1;
-    if (!configured){
-        ESP_LOGW(TAG, "WiFi not yet configured, starting AP mode");
-        ip_interface::init(eAdapterType::ADAPTER_AP, event_callback);
-    } else {
-        ip_interface::init(eAdapterType::ADAPTER_STA, event_callback);
-    }
-}
-
 void connection_manager::start(eAdapterType type){
     ip_interface::start(type);
 }
