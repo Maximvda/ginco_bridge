@@ -24,15 +24,18 @@ namespace driver
     {
     private:
         ConfigDriver();
+
+        using data_variant = std::variant<bool, std::string>;
+
         nvs_handle_t nvs_handle_;
-        std::map<ConfigKey, std::variant<bool, std::string>> config_data_;
+        std::map<ConfigKey, data_variant> config_data_;
 
         std::string key_names_[static_cast<uint8_t>(ConfigKey::MAXIMUM)];
 
         Mutex m_;
 
-        void setKey(const char* key, uint8_t value);
-        void setString(const char* key, const char* value);
+        void setKey(const ConfigKey key, uint8_t value);
+        void setString(const ConfigKey key, std::string value);
         void getString(const ConfigKey key);
         void getBool(const ConfigKey key);
 
@@ -49,8 +52,11 @@ namespace driver
             auto& value = config_data_[key];
             /* Check that value has desired alternate */
             assert(std::holds_alternative<T>(value));
-            return std::get<T>(config_data_[key]);
+            return std::get<T>(value);
         }
+
+        void setKey(const ConfigKey key, data_variant);
+
         static ConfigDriver& instance();
     };
 

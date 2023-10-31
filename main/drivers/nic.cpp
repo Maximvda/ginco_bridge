@@ -3,6 +3,8 @@
 #include "string.h"
 #include "esp_log.h"
 
+#include "supervisor.hpp"
+
 static const char *TAG = "Nic";
 
 using driver::NetworkController;
@@ -13,7 +15,7 @@ using driver::IpInterface;
 
 static void eventHandler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
 
-void NetworkController::init(NetworkAdapter adapter)
+void NetworkController::init(const NetworkAdapter& adapter)
 {
     ESP_ERROR_CHECK(esp_netif_init());
     const wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
@@ -23,6 +25,7 @@ void NetworkController::init(NetworkAdapter adapter)
     {
         interface->init(wifi_config_);
     }
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
     ESP_ERROR_CHECK(esp_event_handler_instance_register(
         WIFI_EVENT,
         ESP_EVENT_ANY_ID,
@@ -30,13 +33,18 @@ void NetworkController::init(NetworkAdapter adapter)
         this,
         NULL
     ));
+    start(adapter);
+}
+
+void NetworkController::start(const NetworkAdapter& adapter)
+{
     active_interface_ = *interfaces_[static_cast<uint8_t>(adapter)];
     active_interface_.start();
 }
 
 void NetworkController::handleEvent(esp_event_base_t event, int32_t id, void* data)
 {
-    active_interface_.handleEvent(id, data);
+    active_interface_.handleEvent(*this, id, data);
 }
 
 void NetworkController::setSsid(const char* ssid, const char* pass)
@@ -54,7 +62,7 @@ void WifiStaI::init(wifi_config_t& config)
         ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &config));
     }
     config_pending_ = false;
-    ESP_LOGI(TAG, "WiFi STA done.");
+    ESP_LOGI(TAG, "WiFi STA init ok");
 }
 
 void WifiApI::init(wifi_config_t& config)
@@ -66,19 +74,22 @@ void WifiApI::init(wifi_config_t& config)
         sprintf((char *)config.ap.ssid, "ginco_bridge");
         ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &config));
     }
-    ESP_LOGI(TAG, "WiFi AP init done.");
+    ESP_LOGI(TAG, "WiFi AP init ok");
 }
 
-void WifiStaI::handleEvent(int32_t id, void* data)
+void WifiStaI::handleEvent(NetworkController& context, int32_t id, void* data)
 {
-    ESP_LOGI(TAG, "Client event %lu", id);
+    ESP_LOGI(TAG, "%s event %lu", name(), id);
     switch (id)
     {
     case WIFI_EVENT_STA_START:
-        // add_event(ip_type, SIGNAL_IPDRIVER_RUNNING);
-        // if (esp_wifi_connect() == ESP_ERR_WIFI_SSID)
-            // add_event(ip_type, SIGNAL_IPDRIVER_CONNECTION_ERROR);
+    {
+        if (esp_wifi_connect() == ESP_ERR_WIFI_SSID)
+        {
+            context.start(NetworkAdapter::AP);
+        }
         break;
+    }
     case WIFI_EVENT_STA_CONNECTED:
         // add_event(ip_type, SIGNAL_IPDRIVER_CONNECTED);
         break;
@@ -95,8 +106,9 @@ void WifiStaI::handleEvent(int32_t id, void* data)
     }
 }
 
-void WifiApI::handleEvent(int32_t id, void* data)
+void WifiApI::handleEvent(NetworkController& context, int32_t id, void* data)
 {
+    ESP_LOGI(TAG, "%s event %lu", name(), id);
     switch (id)
     {
     case WIFI_EVENT_AP_START:
@@ -131,8 +143,7 @@ void IpInterface::start()
 
 static void eventHandler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
-    if (arg == nullptr)
-        return;
+    assert(arg != nullptr);
     NetworkController* controller = reinterpret_cast<NetworkController*>(arg);
     controller->handleEvent(event_base, event_id, event_data);
 }

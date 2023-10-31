@@ -6,4 +6,5 @@ typedef enum
     EVENT_GPIO_TOGGLE,
     EVENT_CAN_TRANSMIT,
     EVENT_CAN_RECEIVED,
+    EVENT_WRONG_SSID,
 } eEventType;

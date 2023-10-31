@@ -36,6 +36,23 @@ ConfigDriver::ConfigDriver(){
     getBool(ConfigKey::WIFI_CONFIGURED);
 }
 
+void ConfigDriver::setKey(const ConfigKey key, data_variant data)
+{
+    auto guard = m_.guard();
+    /* Key should always be defined in our map*/
+    assert(config_data_.find(key) != config_data_.end());
+    if (std::holds_alternative<bool>(data))
+    {
+        config_data_[key] = data;
+        setKey(key, static_cast<uint8_t>(std::get<bool>(data)));
+    }
+    else if (std::holds_alternative<std::string>(data))
+    {
+        config_data_[key] = data;
+        setString(key, std::get<std::string>(data));
+    }
+}
+
 void ConfigDriver::getString(const ConfigKey key)
 {
     size_t required_size;
@@ -54,12 +71,14 @@ void ConfigDriver::getBool(const ConfigKey key)
     config_data_[key] = value == 1;
 }
 
-void ConfigDriver::setKey(const char* key, uint8_t value){
-    nvs_set_i8(nvs_handle_, key, value);
+void ConfigDriver::setKey(const ConfigKey key, uint8_t value){
+    const char* key_name = key_names_[static_cast<uint16_t>(key)].data();
+    nvs_set_i8(nvs_handle_, key_name, value);
     nvs_commit(nvs_handle_);
 }
 
-void ConfigDriver::setString(const char* key, const char* value){
-    nvs_set_str(nvs_handle_, key, value);
+void ConfigDriver::setString(const ConfigKey key, std::string value){
+    const char* key_name = key_names_[static_cast<uint16_t>(key)].data();
+    nvs_set_str(nvs_handle_, key_name, value.data());
     nvs_commit(nvs_handle_);
 }

@@ -10,13 +10,21 @@ namespace driver
         AP
     };
 
+    enum class NetworkEvent
+    {
+        CONNECTED,
+    };
+
+    /* Forward declaration to use it in handle event as context */
+    class NetworkController;
+
     class IpInterface
     {
     private:
         NetworkAdapter adapter_;
         virtual void init(wifi_config_t &config) = 0;
         virtual void start();
-        virtual void handleEvent(int32_t id, void* data) = 0;
+        virtual void handleEvent(NetworkController& context, int32_t id, void* data) = 0;
         friend class NetworkController;
         virtual const char * name() const = 0;
     };
@@ -27,7 +35,7 @@ namespace driver
         bool config_pending_ {false};
         NetworkAdapter adapter_{NetworkAdapter::STA};
         virtual void init(wifi_config_t &config);
-        virtual void handleEvent(int32_t id, void* data);
+        virtual void handleEvent(NetworkController& context, int32_t id, void* data);
         friend class NetworkController;
         const char *name() const override { return "sta"; }
     };
@@ -37,7 +45,7 @@ namespace driver
     private:
         NetworkAdapter adapter_{NetworkAdapter::AP};
         virtual void init(wifi_config_t &config);
-        virtual void handleEvent(int32_t id, void* data);
+        virtual void handleEvent(NetworkController& context, int32_t id, void* data);
         friend class NetworkController;
         const char *name() const override { return "ap"; }
     };
@@ -52,8 +60,10 @@ namespace driver
         IpInterface& active_interface_ {*interfaces_[0]};
 
     public:
-        void init(NetworkAdapter adapter);
+        void init(const NetworkAdapter& adapter);
         void handleEvent(esp_event_base_t event, int32_t id, void* data);
+
+        void start(const NetworkAdapter& adapter);
 
         void setSsid(const char* ssid, const char* pass);
     };
