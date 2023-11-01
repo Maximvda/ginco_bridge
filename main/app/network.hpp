@@ -8,6 +8,7 @@
 using driver::ConfigDriver;
 using driver::MqttDriver;
 using driver::NetworkController;
+using driver::NetworkEvent;
 
 namespace app
 {
@@ -20,5 +21,7 @@ namespace app
     public:
         NetworkManager() : config_(ConfigDriver::instance()){};
         void init();
+
+        void eventHandler(NetworkEvent event);
     };
 }

@@ -2,6 +2,8 @@
 
 #include "esp_wifi.h"
 
+#include <functional>
+
 namespace driver
 {
     enum class NetworkAdapter
@@ -60,11 +62,15 @@ namespace driver
         IpInterface& active_interface_ {*interfaces_[0]};
 
     public:
+        std::function<void(NetworkEvent)> event_handler {nullptr};
+
         void init(const NetworkAdapter& adapter);
         void handleEvent(esp_event_base_t event, int32_t id, void* data);
 
         void start(const NetworkAdapter& adapter);
 
         void setSsid(const char* ssid, const char* pass);
+
+        void setHandler(std::function<void(NetworkEvent)> cb_fnc);
     };
 } // namespace driver

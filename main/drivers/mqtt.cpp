@@ -11,7 +11,7 @@ bool MqttDriver::init(std::string& url)
 {
     esp_mqtt_client_config_t mqtt_cfg = {};
     mqtt_cfg.broker.address.uri = url.data();
-    ESP_LOGI(TAG, "connecting to %s", mqtt_cfg.broker.address.uri);
+    ESP_LOGI(TAG, "uri: %s", mqtt_cfg.broker.address.uri);
     client_ = esp_mqtt_client_init(&mqtt_cfg);
     esp_mqtt_client_register_event(
         client_,

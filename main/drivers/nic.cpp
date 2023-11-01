@@ -20,7 +20,6 @@ void NetworkController::init(const NetworkAdapter& adapter)
     ESP_ERROR_CHECK(esp_netif_init());
     const wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-    ESP_ERROR_CHECK(esp_wifi_get_config(WIFI_IF_AP, &wifi_config_));
     for (auto* interface : interfaces_)
     {
         interface->init(wifi_config_);
@@ -56,17 +55,20 @@ void NetworkController::setSsid(const char* ssid, const char* pass)
 
 void WifiStaI::init(wifi_config_t& config)
 {
+    ESP_ERROR_CHECK(esp_wifi_get_config(WIFI_IF_STA, &config));
     esp_netif_create_default_wifi_sta();
     if(config_pending_)
     {
         ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &config));
     }
     config_pending_ = false;
-    ESP_LOGI(TAG, "WiFi STA init ok");
+    ESP_LOGI(TAG, "STA init ok");
+    ESP_LOGI(TAG, "connecting with: %s  | %s", config.sta.ssid, config.sta.password);
 }
 
 void WifiApI::init(wifi_config_t& config)
 {
+    ESP_ERROR_CHECK(esp_wifi_get_config(WIFI_IF_AP, &config));
     esp_netif_create_default_wifi_ap();
     config.ap.authmode = WIFI_AUTH_OPEN;
     if (config.ap.ssid[0] == 0)
@@ -91,8 +93,13 @@ void WifiStaI::handleEvent(NetworkController& context, int32_t id, void* data)
         break;
     }
     case WIFI_EVENT_STA_CONNECTED:
-        // add_event(ip_type, SIGNAL_IPDRIVER_CONNECTED);
+    {
+        if (context.event_handler != nullptr)
+        {
+            context.event_handler(NetworkEvent::CONNECTED);
+        }
         break;
+    }
     case WIFI_EVENT_STA_DISCONNECTED:
     {
         // add_event(ip_type, SIGNAL_IPDRIVER_DISCONNECTED);
@@ -146,6 +153,11 @@ static void eventHandler(void *arg, esp_event_base_t event_base, int32_t event_i
     assert(arg != nullptr);
     NetworkController* controller = reinterpret_cast<NetworkController*>(arg);
     controller->handleEvent(event_base, event_id, event_data);
+}
+
+void NetworkController::setHandler(std::function<void(NetworkEvent)> cb_fnc)
+{
+    event_handler = cb_fnc;
 }
 
 // void WiFiStaInterface::handleDisconnect(wifi_err_reason_t reason)
