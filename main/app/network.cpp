@@ -10,6 +10,7 @@ void NetworkManager::init()
             this->eventHandler(event);
         }
     );
+    config_.setKey(ConfigKey::WIFI_CONFIGURED, true);
     if(config_.getKey<bool>(ConfigKey::WIFI_CONFIGURED))
     {
         controller_.init(driver::NetworkAdapter::STA);

@@ -18,13 +18,15 @@ static void eventHandler(void *arg, esp_event_base_t event_base, int32_t event_i
 void NetworkController::init(const NetworkAdapter& adapter)
 {
     ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
     const wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-    for (auto* interface : interfaces_)
+
+    for (auto& interface : interfaces_)
     {
-        interface->init(wifi_config_);
+        interface->init();
     }
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
+
     ESP_ERROR_CHECK(esp_event_handler_instance_register(
         WIFI_EVENT,
         ESP_EVENT_ANY_ID,
@@ -32,49 +34,62 @@ void NetworkController::init(const NetworkAdapter& adapter)
         this,
         NULL
     ));
+    ESP_ERROR_CHECK(esp_event_handler_instance_register(
+        IP_EVENT,
+        IP_EVENT_STA_GOT_IP,
+        &eventHandler,
+        this,
+        NULL
+    ));
+    ESP_LOGI(TAG, "Connecting %u", static_cast<uint8_t>(adapter));
     start(adapter);
 }
 
 void NetworkController::start(const NetworkAdapter& adapter)
 {
-    active_interface_ = *interfaces_[static_cast<uint8_t>(adapter)];
-    active_interface_.start();
+    active_interface_ = interfaces_[static_cast<uint8_t>(adapter)];
+    active_interface_->start();
 }
 
 void NetworkController::handleEvent(esp_event_base_t event, int32_t id, void* data)
 {
-    active_interface_.handleEvent(*this, id, data);
+    if (event == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
+        ip_event_got_ip_t* event = (ip_event_got_ip_t*) data;
+        ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
+        return;
+    }
+    active_interface_->handleEvent(*this, id, data);
 }
 
 void NetworkController::setSsid(const char* ssid, const char* pass)
 {
-    strcpy((char *)wifi_config_.sta.ssid, ssid);
-    strcpy((char *)wifi_config_.sta.password, pass);
+    strcpy((char *)sta_i_.wifi_config_.sta.ssid, ssid);
+    strcpy((char *)sta_i_.wifi_config_.sta.password, pass);
     sta_i_.config_pending_ = true;
 }
 
-void WifiStaI::init(wifi_config_t& config)
+void WifiStaI::init()
 {
-    ESP_ERROR_CHECK(esp_wifi_get_config(WIFI_IF_STA, &config));
-    esp_netif_create_default_wifi_sta();
+    ESP_ERROR_CHECK(esp_wifi_get_config(WIFI_IF_STA, &wifi_config_));
+    interface_ = esp_netif_create_default_wifi_sta();
     if(config_pending_)
     {
-        ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &config));
+        ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config_));
     }
     config_pending_ = false;
     ESP_LOGI(TAG, "STA init ok");
-    ESP_LOGI(TAG, "connecting with: %s  | %s", config.sta.ssid, config.sta.password);
+    ESP_LOGI(TAG, "connecting with: %s  | %s", wifi_config_.sta.ssid, wifi_config_.sta.password);
 }
 
-void WifiApI::init(wifi_config_t& config)
+void WifiApI::init()
 {
-    ESP_ERROR_CHECK(esp_wifi_get_config(WIFI_IF_AP, &config));
-    esp_netif_create_default_wifi_ap();
-    config.ap.authmode = WIFI_AUTH_OPEN;
-    if (config.ap.ssid[0] == 0)
+    ESP_ERROR_CHECK(esp_wifi_get_config(WIFI_IF_AP, &wifi_config_));
+    interface_ = esp_netif_create_default_wifi_ap();
+    wifi_config_.ap.authmode = WIFI_AUTH_OPEN;
+    if (wifi_config_.ap.ssid[0] == 0)
     {
-        sprintf((char *)config.ap.ssid, "ginco_bridge");
-        ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &config));
+        sprintf((char *)wifi_config_.ap.ssid, "ginco_bridge");
+        ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config_));
     }
     ESP_LOGI(TAG, "WiFi AP init ok");
 }
@@ -142,8 +157,8 @@ void WifiApI::handleEvent(NetworkController& context, int32_t id, void* data)
 void IpInterface::start()
 {
     esp_wifi_stop();
-    wifi_mode_t mode = adapter_ == NetworkAdapter::AP ? WIFI_MODE_AP : WIFI_MODE_STA;
-    ESP_ERROR_CHECK(esp_wifi_set_mode(mode));
+    // ESP_ERROR_CHECK(esp_netif_set_default_netif(interface()));
+    ESP_ERROR_CHECK(esp_wifi_set_mode(mode()));
     ESP_ERROR_CHECK(esp_wifi_start());
     ESP_LOGI(TAG, "%s started.", name());
 }

@@ -44,7 +44,7 @@ void ConfigDriver::setKey(const ConfigKey key, data_variant data)
     if (std::holds_alternative<bool>(data))
     {
         config_data_[key] = data;
-        setKey(key, static_cast<uint8_t>(std::get<bool>(data)));
+        setUint8(key, static_cast<uint8_t>(std::get<bool>(data)));
     }
     else if (std::holds_alternative<std::string>(data))
     {
@@ -71,7 +71,7 @@ void ConfigDriver::getBool(const ConfigKey key)
     config_data_[key] = value == 1;
 }
 
-void ConfigDriver::setKey(const ConfigKey key, uint8_t value){
+void ConfigDriver::setUint8(const ConfigKey key, uint8_t value){
     const char* key_name = key_names_[static_cast<uint16_t>(key)].data();
     nvs_set_i8(nvs_handle_, key_name, value);
     nvs_commit(nvs_handle_);
