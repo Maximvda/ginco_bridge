@@ -31,7 +31,6 @@ namespace data
     class GincoMessage
     {
     private:
-        uint8_t source_id_;
         bool event_{false};
         bool linked_;
         bool ack_;
@@ -52,6 +51,7 @@ namespace data
         }
 
     public:
+        uint8_t source_id_;
         Function function;
         uint64_t data;
         uint8_t data_length;

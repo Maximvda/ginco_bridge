@@ -25,8 +25,8 @@ uint32_t smp_varint_encoding_length(uint32_t n) {
 uint8_t * smp_varint_encode(uint8_t * ptr, uint32_t n) {
 
     while (n & MSBALL) {
-    	*ptr++ = (n & 0xFF) | MSB;
-    	n = n >> 7;
+        *ptr++ = (n & 0xFF) | MSB;
+        n = n >> 7;
     }
     *ptr++ = n;
     return ptr;

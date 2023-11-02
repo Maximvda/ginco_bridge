@@ -29,8 +29,8 @@ static void config_listener_task(void *pvParameters);
 
 bool driver::socket::init()
 {
-	BaseType_t result = xTaskCreate(config_listener_task, TAG, 8192, NULL, 5, NULL);
-	return (result == pdPASS) ? true : false;
+    BaseType_t result = xTaskCreate(config_listener_task, TAG, 8192, NULL, 5, NULL);
+    return (result == pdPASS) ? true : false;
 }
 
 static std::unique_ptr<char[]> readItem(int sock) {

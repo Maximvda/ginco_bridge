@@ -65,8 +65,6 @@ void MqttClient::handleMessage(esp_mqtt_event_t* message)
 
 void MqttClient::handleEvent(esp_event_base_t base, int32_t id, void *data)
 {
-    ESP_LOGI(TAG, "base=%s, event_id=%li", base, id);
-
     switch ((esp_mqtt_event_id_t)id)
     {
     case MQTT_EVENT_CONNECTED:

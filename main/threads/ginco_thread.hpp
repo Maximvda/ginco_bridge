@@ -15,26 +15,26 @@ using app::Device;
 namespace app
 {
 
-	class GincoTask : public StandardTask
-	{
+    class GincoTask : public StandardTask
+    {
 
-	private:
-		Device device_;
+    private:
+        Device device_;
 
-		void handle(utils::Message &) override;
-		void onStart() override;
-		void onTimeout() override;
-		Milliseconds queueTimeout() override { return 10; };
+        void handle(utils::Message &) override;
+        void onStart() override;
+        void onTimeout() override;
+        Milliseconds queueTimeout() override { return 10; };
 
-	public:
-		GincoTask(uint32_t priority) : StandardTask(priority) {}
+    public:
+        GincoTask(uint32_t priority) : StandardTask(priority) {}
 
-		const char *name() const override { return "ginco"; }
+        const char *name() const override { return "ginco"; }
 
-		bool frameReady(const GincoMessage &message)
-		{
-			return post(EVENT_CAN_RECEIVED, std::make_unique<GincoMessage>(message));
-		}
-	};
+        bool frameReady(const GincoMessage &message)
+        {
+            return post(EVENT_CAN_RECEIVED, std::make_unique<GincoMessage>(message));
+        }
+    };
 
 }

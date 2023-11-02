@@ -9,29 +9,29 @@ using utils::SupervisedTask;
 
 namespace app {
 
-	class TaskList {
-	private:
+    class TaskList {
+    private:
         app::CanTask can_ {3};
-		app::GincoTask ginco_ {1};
-		app::NetworkTask network_ {2};
+        app::GincoTask ginco_ {1};
+        app::NetworkTask network_ {2};
 
-		const std::vector<SupervisedTask *> tasks_ {
-			&can_,
-			&ginco_,
-			&network_
-		};
+        const std::vector<SupervisedTask *> tasks_ {
+            &can_,
+            &ginco_,
+            &network_
+        };
 
-		TaskList() = default;
+        TaskList() = default;
 
-	public:
-		// only Supervisor can create the TaskList
-		friend class Supervisor;
+    public:
+        // only Supervisor can create the TaskList
+        friend class Supervisor;
 
-		TaskList(const TaskList&) = delete;
-		auto& tasks() { return tasks_; }
+        TaskList(const TaskList&) = delete;
+        auto& tasks() { return tasks_; }
 
-		auto& can() { return can_;}
-		auto& ginco() { return ginco_;}
-		auto& network() { return network_;}
-	};
+        auto& can() { return can_;}
+        auto& ginco() { return ginco_;}
+        auto& network() { return network_;}
+    };
 }

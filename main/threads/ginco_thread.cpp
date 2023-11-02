@@ -10,8 +10,8 @@ const static char *TAG = "ginco thread";
 
 void GincoTask::onStart()
 {
-	ESP_LOGI(TAG, "started.");
-	device_.init();
+    ESP_LOGI(TAG, "started.");
+    device_.init();
 }
 
 void GincoTask::onTimeout()
@@ -20,9 +20,9 @@ void GincoTask::onTimeout()
 
 void GincoTask::handle(Message &message)
 {
-	switch (message.event())
-	{
-	default:
-		assert(0);
-	}
+    switch (message.event())
+    {
+    default:
+        assert(0);
+    }
 }

@@ -56,6 +56,7 @@ void CanDriver::tick()
         return;
     }
     GincoMessage ginco_mes(message);
+    ESP_LOGI(TAG, "frame rec: %u : %u", ginco_mes.source_id_, static_cast<uint>(ginco_mes.function));
     /* Frame received so send to correct place */
     app::taskFinder().ginco().frameReady(message);
 }
