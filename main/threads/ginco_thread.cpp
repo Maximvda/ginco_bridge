@@ -22,6 +22,15 @@ void GincoTask::handle(Message &message)
 {
     switch (message.event())
     {
+    case EVENT_CAN_RECEIVED:
+    {
+        if (auto mes = message.takeValue<GincoMessage>())
+        {
+            /*TODO: Handle can frame */
+            /*TODO: CHECK IF FRAME IS FOR THIS DEVICE OR DIFFERENT DEVICE */
+        }
+        break;
+    }
     default:
         assert(0);
     }

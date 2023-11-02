@@ -15,34 +15,35 @@ namespace data
         PAUSE_EFFECT,
         UPGRADE,
         FW_IMAGE,
+        REQUEST_ADDRESS,
         REQUEST_STATE = 0xFF,
     };
 
     struct OutputState
     {
         /* Is the output in pwm mode */
-        bool pwm_mode{false};
+        bool pwm_mode {false};
         /* Is the output high or low (only valid for not pwm mode) */
-        bool high{false};
+        bool high {false};
         /* Indicate sthe pwm level */
-        uint8_t pwm_level{0};
+        uint8_t pwm_level {0};
     };
 
     class GincoMessage
     {
     private:
-        bool event_{false};
-        bool linked_;
-        bool ack_;
-        uint8_t feature_type_;
-        uint8_t index_;
+        bool event_ {false};
+        bool linked_ {false};
+        bool ack_ {false};
+        uint8_t feature_type_ {0};
+        uint8_t index_ {0};
         twai_message_t can_message_;
 
         uint32_t id() const
         {
             return (
                 (event_ ? 1 << 26 : 0) +
-                (source_id_ << 18) +
+                (source_id << 18) +
                 (linked_ ? 1 << 17 : 0) +
                 (ack_ ? 1 << 16 : 0) +
                 (feature_type_ << 13) +
@@ -51,14 +52,14 @@ namespace data
         }
 
     public:
-        uint8_t source_id_;
+        uint8_t source_id {0};
         Function function;
         uint64_t data;
-        uint8_t data_length;
-        GincoMessage(){}
-        GincoMessage(twai_message_t& message)
-        {
-            source_id_ = (message.identifier >> 18) & 0xFF;
+        uint8_t data_length {0};
+        GincoMessage(){};
+
+        GincoMessage(twai_message_t message) {
+            source_id = (message.identifier >> 18) & 0xFF;
             linked_ = (message.identifier >> 17) & 0x01;
             ack_ = (message.identifier >> 16) & 0x01;
             feature_type_ = (message.identifier >> 13) & 0x07;
@@ -66,7 +67,7 @@ namespace data
             function = static_cast<Function>(message.identifier & 0xFF);
             data_length = message.data_length_code;
             data = message.data[0];
-        }
+        };
 
         twai_message_t& canMessage()
         {
@@ -93,11 +94,14 @@ namespace data
             return resp;
         }
 
-        bool acknowledge(uint8_t length, uint8_t *data)
+        bool send();
+
+        bool acknowledge(uint8_t length, uint8_t* data)
         {
             memcpy(data, data, length);
             return acknowledge();
         }
+
     };
 
 }
