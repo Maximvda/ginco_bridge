@@ -25,41 +25,38 @@ namespace driver
     {
     private:
         virtual void init() = 0;
-        virtual void start();
+        virtual void start() = 0;
         virtual void handleEvent(NetworkController& context, int32_t id, void* data) = 0;
         friend class NetworkController;
         virtual const char * name() const = 0;
-        virtual wifi_mode_t mode() const = 0;
-        virtual esp_netif_t* interface() const = 0;
     };
 
     class WifiStaI : private IpInterface
     {
     private:
-        bool config_pending_ {true};
+        bool config_pending_ {false};
         wifi_config_t wifi_config_;
         NetworkAdapter adapter_{NetworkAdapter::STA};
         esp_netif_t* interface_;
         virtual void init();
+        virtual void start();
         virtual void handleEvent(NetworkController& context, int32_t id, void* data);
         friend class NetworkController;
         const char *name() const override { return "sta"; }
-        wifi_mode_t mode() const override { return WIFI_MODE_STA; }
-        esp_netif_t* interface() const override { return interface_; }
     };
 
     class WifiApI : private IpInterface
     {
     private:
+        bool config_pending_ {false};
         wifi_config_t wifi_config_;
         NetworkAdapter adapter_{NetworkAdapter::AP};
         esp_netif_t* interface_;
         virtual void init();
+        virtual void start();
         virtual void handleEvent(NetworkController& context, int32_t id, void* data);
         friend class NetworkController;
         const char *name() const override { return "ap"; }
-        wifi_mode_t mode() const override { return WIFI_MODE_AP; }
-        esp_netif_t* interface() const override { return interface_; }
     };
 
     class NetworkController

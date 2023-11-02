@@ -5,7 +5,7 @@ using driver::ConfigKey;
 
 void NetworkManager::init()
 {
-    controller_.setHandler(
+    controller.setHandler(
         [this](NetworkEvent event){
             this->eventHandler(event);
         }
@@ -13,11 +13,11 @@ void NetworkManager::init()
     config_.setKey(ConfigKey::WIFI_CONFIGURED, true);
     if(config_.getKey<bool>(ConfigKey::WIFI_CONFIGURED))
     {
-        controller_.init(driver::NetworkAdapter::STA);
+        controller.init(driver::NetworkAdapter::STA);
     }
     else
     {
-        controller_.init(driver::NetworkAdapter::AP);
+        controller.init(driver::NetworkAdapter::AP);
     }
 }
 
@@ -33,4 +33,9 @@ void NetworkManager::eventHandler(NetworkEvent event)
         default:
             break;
     }
+}
+
+void NetworkManager::startInterface(NetworkAdapter adapter)
+{
+    controller.start(adapter);
 }

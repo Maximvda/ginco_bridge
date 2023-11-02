@@ -6,7 +6,7 @@
 #include <string>
 #include <memory>
 
-using components::UpgradeHandler;
+using component::UpgradeHandler;
 
 namespace component
 {

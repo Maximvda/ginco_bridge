@@ -4,6 +4,7 @@
 #include "esp_log.h"
 
 #include "supervisor.hpp"
+#include "socket.hpp"
 
 static const char *TAG = "Nic";
 
@@ -41,7 +42,6 @@ void NetworkController::init(const NetworkAdapter& adapter)
         this,
         NULL
     ));
-    ESP_LOGI(TAG, "Connecting %u", static_cast<uint8_t>(adapter));
     start(adapter);
 }
 
@@ -70,27 +70,24 @@ void NetworkController::setSsid(const char* ssid, const char* pass)
 
 void WifiStaI::init()
 {
+    esp_wifi_set_mode(WIFI_MODE_STA);
     ESP_ERROR_CHECK(esp_wifi_get_config(WIFI_IF_STA, &wifi_config_));
     interface_ = esp_netif_create_default_wifi_sta();
-    if(config_pending_)
-    {
-        ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config_));
-    }
-    config_pending_ = false;
     ESP_LOGI(TAG, "STA init ok");
     ESP_LOGI(TAG, "connecting with: %s  | %s", wifi_config_.sta.ssid, wifi_config_.sta.password);
 }
 
 void WifiApI::init()
 {
+    esp_wifi_set_mode(WIFI_MODE_AP);
     ESP_ERROR_CHECK(esp_wifi_get_config(WIFI_IF_AP, &wifi_config_));
     interface_ = esp_netif_create_default_wifi_ap();
     wifi_config_.ap.authmode = WIFI_AUTH_OPEN;
-    if (wifi_config_.ap.ssid[0] == 0)
-    {
-        sprintf((char *)wifi_config_.ap.ssid, "ginco_bridge");
-        ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config_));
-    }
+    /* FIXME: Don't always overwrite the config */
+    std::string ssid = "ginco_bridge";
+    sprintf((char *)wifi_config_.ap.ssid, ssid.data());
+    wifi_config_.ap.ssid_len = ssid.length();
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config_));
     ESP_LOGI(TAG, "WiFi AP init ok");
 }
 
@@ -134,7 +131,7 @@ void WifiApI::handleEvent(NetworkController& context, int32_t id, void* data)
     switch (id)
     {
     case WIFI_EVENT_AP_START:
-        // add_event(ip_type, SIGNAL_IPDRIVER_RUNNING);
+        driver::socket::init();
         break;
     case WIFI_EVENT_AP_STACONNECTED:
     {
@@ -154,11 +151,28 @@ void WifiApI::handleEvent(NetworkController& context, int32_t id, void* data)
     }
 }
 
-void IpInterface::start()
+void WifiStaI::start()
 {
     esp_wifi_stop();
-    // ESP_ERROR_CHECK(esp_netif_set_default_netif(interface()));
-    ESP_ERROR_CHECK(esp_wifi_set_mode(mode()));
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+    if (config_pending_)
+    {
+        ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config_));
+        config_pending_ = false;
+    }
+    ESP_ERROR_CHECK(esp_wifi_start());
+    ESP_LOGI(TAG, "%s started.", name());
+}
+
+void WifiApI::start()
+{
+    esp_wifi_stop();
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
+    if (config_pending_)
+    {
+        ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config_));
+        config_pending_ = false;
+    }
     ESP_ERROR_CHECK(esp_wifi_start());
     ESP_LOGI(TAG, "%s started.", name());
 }

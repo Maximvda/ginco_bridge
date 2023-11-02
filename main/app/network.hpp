@@ -6,9 +6,10 @@
 #include "config.hpp"
 
 using driver::ConfigDriver;
-using driver::MqttClient;
 using driver::NetworkController;
 using driver::NetworkEvent;
+using driver::NetworkAdapter;
+using component::MqttClient;
 
 namespace app
 {
@@ -16,12 +17,14 @@ namespace app
     {
     private:
         ConfigDriver& config_;
-        NetworkController controller_;
         MqttClient mqtt_;
     public:
+        NetworkController controller;
+
         NetworkManager() : config_(ConfigDriver::instance()){};
         void init();
 
         void eventHandler(NetworkEvent event);
+        void startInterface(NetworkAdapter adapter);
     };
 }

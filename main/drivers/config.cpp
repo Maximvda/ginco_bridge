@@ -16,6 +16,7 @@ ConfigDriver& ConfigDriver::instance()
 ConfigDriver::ConfigDriver(){
     // Initialize NVS
     esp_err_t err = nvs_flash_init();
+    ESP_LOGI(TAG, "init start");
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ESP_LOGW(TAG, "NVS partition was truncated and needs to be erased");
         // Retry nvs_flash_init
@@ -24,6 +25,7 @@ ConfigDriver::ConfigDriver(){
     }
     ESP_ERROR_CHECK( err );
     err = nvs_open("storage", NVS_READWRITE, &nvs_handle_);
+    ESP_LOGI(TAG, "handle opened");
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Error (%s) opening NVS handle!\n", esp_err_to_name(err));
     }
@@ -31,9 +33,11 @@ ConfigDriver::ConfigDriver(){
     key_names_[static_cast<uint16_t>(ConfigKey::MQTT_URL)] = "MQTT_URL";
     key_names_[static_cast<uint16_t>(ConfigKey::WIFI_CONFIGURED)] = "CONFIGURED";
 
+    ESP_LOGI(TAG, "loading keys");
     /* Load all values from NVS */
     getString(ConfigKey::MQTT_URL);
     getBool(ConfigKey::WIFI_CONFIGURED);
+    ESP_LOGI(TAG, "keys loaded");
 }
 
 void ConfigDriver::setKey(const ConfigKey key, data_variant data)

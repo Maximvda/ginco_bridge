@@ -1,14 +1,36 @@
 #include "upgrade.hpp"
 
+#include "esp_log.h"
+
 #include "varint_decode.h"
 #include "ginco.pb-c.h"
+
+static const char *TAG = "Upgrader";
 
 using component::UpgradeHandler;
 using component::Upgrader;
 
 /* Forward delcaration */
-class SelfUpgrader;
-class CanUpgrader;
+class SelfUpgrader : public Upgrader
+{
+	private:
+		const esp_partition_t* ota_partition_;
+		esp_ota_handle_t update_handle_;
+
+		bool partitionValid();
+	public:
+		bool init(Ginco__Upgrade& command);
+		bool receive(const uint8_t * data, uint32_t len);
+		void complete();
+		void fail();
+};
+class CanUpgrader : public Upgrader {
+	public:
+		bool init(Ginco__Upgrade& command);
+		bool receive(const uint8_t * data, uint32_t len);
+		void complete();
+		void fail();
+};
 
 UpgradeHandler::UpgradeHandler(const esp_mqtt_event_t& event)
 {
@@ -33,7 +55,7 @@ UpgradeHandler::UpgradeHandler(const esp_mqtt_event_t& event)
 		active_receiver = std::make_unique<CanUpgrader>();
 	}
 
-	if (!active_receiver->init(command))
+	if (!active_receiver->init(*command->upgrade))
 	{
 		active_receiver->fail();
 	}
@@ -54,85 +76,72 @@ void UpgradeHandler::complete()
 	active_receiver->complete();
 };
 
-// bool OtaReceiver::init(Ginco__Command *command)
-// {
-// 	otaPartition = esp_ota_get_next_update_partition(NULL);
-// 	if (otaPartition == NULL)
-// 	{
-// 		ESP_LOGE(TAG, "Passive OTA partition not found");
-// 		return false;
-// 	}
-// 	if (command->upgrade->image_size > otaPartition->size)
-// 	{
-// 		ESP_LOGE(TAG, "Image size too large");
-// 		return false;
-// 	}
+bool SelfUpgrader::init(Ginco__Upgrade& upgrade_cmd)
+{
+	ota_partition_ = esp_ota_get_next_update_partition(NULL);
+	if (ota_partition_ == NULL)
+	{
+		ESP_LOGE(TAG, "Passive OTA partition not found");
+		return false;
+	}
+	if (upgrade_cmd.image_size > ota_partition_->size)
+	{
+		ESP_LOGE(TAG, "Image size too large");
+		return false;
+	}
 
-// 	ESP_ERROR_CHECK(esp_ota_begin(otaPartition, command->upgrade->image_size, &update_handle));
-// 	ESP_LOGI(TAG, "esp_ota_begin succeeded");
-// 	return true;
-// };
+	ESP_ERROR_CHECK(esp_ota_begin(ota_partition_, upgrade_cmd.image_size, &update_handle_));
+	ESP_LOGI(TAG, "esp_ota_begin succeeded");
+	return true;
+};
 
-// bool OtaReceiver::partitionValid(void)
-// {
-// 	esp_app_desc_t newDescription;
-// 	const esp_app_desc_t *currentDescription = esp_app_get_description();
-// 	esp_err_t err = esp_ota_get_partition_description(otaPartition, &newDescription);
-// 	if (err != ESP_OK)
-// 	{
-// 		ESP_LOGW(TAG, "ota get description returned %d ", err);
-// 		return false;
-// 	}
-// 	if (strcmp(currentDescription->project_name, newDescription.project_name))
-// 	{
-// 		ESP_LOGW(TAG, "Invalid image name %s, should be %s", newDescription.project_name, currentDescription->project_name);
-// 		return false;
-// 	}
-// 	return true;
-// };
+bool SelfUpgrader::partitionValid()
+{
+	esp_app_desc_t new_description;
+	const esp_app_desc_t * current_description = esp_app_get_description();
+	esp_err_t err = esp_ota_get_partition_description(ota_partition_, &new_description);
+	if (err != ESP_OK) {
+		ESP_LOGW(TAG, "ota get description returned %d ", err);
+		return false;
+	}
+	if (strcmp(current_description->project_name, new_description.project_name)) {
+		ESP_LOGW(TAG, "Invalid image name %s, should be %s", new_description.project_name, current_description->project_name);
+		return false;
+	}
+	return true;
+};
 
-// bool OtaReceiver::receive(const uint8_t *data, uint32_t len)
-// {
-// 	ESP_ERROR_CHECK(esp_ota_write(update_handle, data, len));
-// 	return true;
-// };
+bool SelfUpgrader::receive(const uint8_t *data, uint32_t len)
+{
+	ESP_ERROR_CHECK(esp_ota_write(update_handle_, data, len));
+	return true;
+};
 
-// void OtaReceiver::complete()
-// {
-// 	ESP_ERROR_CHECK(esp_ota_end(update_handle));
-// 	if (!partitionValid())
-// 		return;
+void SelfUpgrader::complete()
+{
+	ESP_ERROR_CHECK(esp_ota_end(update_handle_));
+	if (!partitionValid())
+		return;
 
-// 	ESP_ERROR_CHECK(esp_ota_set_boot_partition(otaPartition));
-// 	ESP_LOGI(TAG, "esp_ota_set_boot_partition succeeded");
-// 	esp_restart();
-// };
+	ESP_ERROR_CHECK(esp_ota_set_boot_partition(ota_partition_));
+	ESP_LOGI(TAG, "esp_ota_set_boot_partition succeeded");
+	esp_restart();
+};
 
-// void OtaReceiver::fail()
-// {
-// 	if (update_handle)
-// 		esp_ota_end(update_handle);
-// };
+void SelfUpgrader::fail()
+{
+	if (update_handle_)
+		esp_ota_end(update_handle_);
+};
 
-// bool CanReceiver::init(Ginco__Command *command)
-// {
-// 	const esp_partition_t *otaPartition = esp_ota_get_next_update_partition(NULL);
-// 	if (otaPartition == NULL)
-// 	{
-// 		ESP_LOGE(TAG, "Passive OTA partition not found");
-// 		return false;
-// 	}
-// 	if (command->upgrade->image_size > otaPartition->size)
-// 	{
-// 		ESP_LOGE(TAG, "Image size too large");
-// 		return false;
-// 	}
-// 	device::init_can_message(&can_message);
-// 	return true;
-// };
+bool CanUpgrader::init(Ginco__Upgrade& command)
+{
+	/* TODO: Send can message*/
+	return true;
+};
 
-// bool CanReceiver::receive(const uint8_t *data, uint32_t len)
-// {
+bool CanUpgrader::receive(const uint8_t *data, uint32_t len)
+{
 // 	uint64_t buffer;
 // 	uint8_t retries = {0};
 // 	while (len > 8)
@@ -166,28 +175,16 @@ void UpgradeHandler::complete()
 // 		ESP_LOGI(TAG, "Retry for upgrade %u", retries);
 // 	}
 
-// 	return true;
-// };
-
-// void CanReceiver::complete()
-// {
-// 	fail();
-// };
-
-// void CanReceiver::fail()
-// {
-// 	// Transmit ending message
-// 	driver::can::transmit(can_message, true);
-// };
-
-
-
-class SelfUpgrader : public Upgrader
-{
-
+	return true;
 };
 
-class CanUpgrader : public Upgrader
+void CanUpgrader::complete()
 {
+	// fail();
+};
 
+void CanUpgrader::fail()
+{
+	// Transmit ending message
+	// driver::can::transmit(can_message, true);
 };

@@ -22,10 +22,9 @@ bool MqttClient::init(std::string& url)
     );
     assert(client_ != nullptr);
     return esp_mqtt_client_start(client_) == ESP_OK;
-
 }
 
-void MqttClient::handleMessage(esp_mqtt_event_handle_t message)
+void MqttClient::handleMessage(esp_mqtt_event_t* message)
 {
     if (message->data_len == 0)
     {
@@ -34,7 +33,11 @@ void MqttClient::handleMessage(esp_mqtt_event_handle_t message)
     /* Full message was received, normal protobuf command */
     if (message->total_data_len == message->data_len)
     {
-        Ginco__Command *command = ginco__command__unpack(NULL, message->data_len, message->data);
+        Ginco__Command *command = ginco__command__unpack(
+            NULL,
+            message->data_len,
+            reinterpret_cast<uint8_t*>(message->data)
+        );
         if (!command)
         {
             return;
@@ -45,16 +48,16 @@ void MqttClient::handleMessage(esp_mqtt_event_handle_t message)
         return;
     }
     /* Upgrade was sent */
-    if (message.current_data_offset == 0)
+    if (message->current_data_offset == 0)
     {
-        upgrade_handler_ = std::make_unique<UpgradeHandler>(message);
+        upgrade_handler_ = std::make_unique<UpgradeHandler>(*message);
         return;
     }
 
-    upgrade_handler_.handle(message);
-    if (event.current_data_offset + event.data_len == event.total_data_len)
+    upgrade_handler_->handle(*message);
+    if (message->current_data_offset + message->data_len == message->total_data_len)
     {
-        upgrade_handler_.complete();
+        upgrade_handler_->complete();
         upgrade_handler_ = nullptr; /* Will free the resources */
     }
 
@@ -92,7 +95,7 @@ void MqttClient::handleEvent(esp_event_base_t base, int32_t id, void *data)
 
     case MQTT_EVENT_DATA:
     {
-        esp_mqtt_event_handle_t event = reinterpret_cast<esp_mqtt_event_handle_t>(data);
+        esp_mqtt_event_t* event = reinterpret_cast<esp_mqtt_event_handle_t>(data);
         handleMessage(event);
         break;
     }

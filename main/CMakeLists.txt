@@ -4,6 +4,8 @@ file(GLOB private_lib
     threads/*.cpp
     app/*.cpp
     defines/*.cpp
+    modules/*.cpp
+    defines/protobuf/*.c
 )
 
 idf_component_register(
@@ -13,10 +15,10 @@ idf_component_register(
     INCLUDE_DIRS
         "."
         "defines"
+        "defines/protobuf"
         "threading"
         "threads"
         "app"
         "drivers"
         "modules"
-        "inc"
 )
