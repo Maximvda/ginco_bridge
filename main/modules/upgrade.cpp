@@ -1,90 +1,58 @@
-// #include "upgrade.h"
+#include "upgrade.hpp"
 
-// #include "varint_decode.h"
-// #include "esp_log.h"
-// #include "can_driver.h"
-// #include "device.h"
+#include "varint_decode.h"
+#include "ginco.pb-c.h"
 
-// using namespace upgrade;
+using component::UpgradeHandler;
+using component::Upgrader;
 
-// const char *TAG = "Upgrade";
-// static Handler handler;
+/* Forward delcaration */
+class SelfUpgrader;
+class CanUpgrader;
 
-// class OtaReceiver : public Receiver
-// {
-// private:
-// 	const esp_partition_t *otaPartition;
-// 	esp_ota_handle_t update_handle;
+UpgradeHandler::UpgradeHandler(const esp_mqtt_event_t& event)
+{
+	uint32_t proto_length;
+	uint8_t *ptr = (uint8_t *)event.data;
+	uint32_t processed;
 
-// 	bool partitionValid(void);
+	ptr = smp_varint_decode(ptr, &proto_length);
+	processed = smp_varint_encoding_length(proto_length) + proto_length;
+	Ginco__Command *command = ginco__command__unpack(NULL, proto_length, ptr);
+	ptr += proto_length;
+	if (!command)
+		return;
 
-// public:
-// 	bool init(Ginco__Command *command);
-// 	bool receive(const uint8_t *data, uint32_t len);
-// 	void complete();
-// 	void fail();
-// };
+    /* Upgrade was for gateway */
+	if (command->upgrade->device_id == 0)
+	{
+		active_receiver = std::make_unique<SelfUpgrader>();
+	}
+	else
+	{
+		active_receiver = std::make_unique<CanUpgrader>();
+	}
 
-// class CanReceiver : public Receiver
-// {
-// private:
-// 	driver::can::message_t can_message;
+	if (!active_receiver->init(command))
+	{
+		active_receiver->fail();
+	}
+	else
+	{
+		active_receiver->receive(ptr, event.data_len - processed);
+	}
+	ginco__command__free_unpacked(command, NULL);
+};
 
-// public:
-// 	bool init(Ginco__Command *command);
-// 	bool receive(const uint8_t *data, uint32_t len);
-// 	void complete();
-// 	void fail();
-// };
+void UpgradeHandler::handle(const esp_mqtt_event_t& event)
+{
+	active_receiver->receive(reinterpret_cast<uint8_t *>(event.data), event.data_len);
+};
 
-// static CanReceiver can_receiver;
-// static OtaReceiver ota_receiver;
-// static Receiver *active_receiver;
-
-// Handler::Handler(void){};
-
-// void Handler::init(const esp_mqtt_event_t &event)
-// {
-// 	uint32_t protoBufLength;
-// 	uint8_t *ptr = (uint8_t *)event.data;
-// 	uint32_t processed;
-
-// 	ptr = smp_varint_decode(ptr, &protoBufLength);
-// 	processed = smp_varint_encoding_length(protoBufLength) + protoBufLength;
-// 	Ginco__Command *command = ginco__command__unpack(NULL, protoBufLength, ptr);
-// 	ptr += protoBufLength;
-// 	if (!command)
-// 		return;
-
-// 	if (command->upgrade->device_id == 0)
-// 	{
-// 		active_receiver = &ota_receiver;
-// 	}
-// 	else
-// 	{
-// 		active_receiver = &can_receiver;
-// 	}
-
-// 	if (!active_receiver->init(command))
-// 	{
-// 		active_receiver->fail();
-// 	}
-// 	else
-// 	{
-// 		active_receiver->receive(ptr, event.data_len - processed);
-// 	}
-// 	ginco__command__free_unpacked(command, NULL);
-// };
-
-// void Handler::handle(const esp_mqtt_event_t &event)
-// {
-// 	active_receiver->receive(reinterpret_cast<uint8_t *>(event.data), event.data_len);
-// };
-
-// void Handler::end()
-// {
-// 	active_receiver->complete();
-// };
+void UpgradeHandler::complete()
+{
+	active_receiver->complete();
+};
 
 // bool OtaReceiver::init(Ginco__Command *command)
 // {
@@ -211,3 +179,15 @@
 // 	// Transmit ending message
 // 	driver::can::transmit(can_message, true);
 // };
+
+
+
+class SelfUpgrader : public Upgrader
+{
+
+};
+
+class CanUpgrader : public Upgrader
+{
+
+};

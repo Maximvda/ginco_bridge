@@ -1,19 +1,25 @@
 #pragma once
 
 #include "mqtt_client.h"
+#include "upgrade.hpp"
 
 #include <string>
+#include <memory>
 
-namespace driver
+using components::UpgradeHandler;
+
+namespace component
 {
-    class MqttDriver
+    class MqttClient
     {
     private:
         esp_mqtt_client_handle_t client_;
+        uint8_t reconnect_attempts_ {0};
+        std::unique_ptr<UpgradeHandler> upgrade_handler_ {nullptr};
 
+        void handleMessage(esp_mqtt_event_handle_t event);
         void sendString(std::string data);
 
-        uint8_t reconnect_attempts_ {0};
 
     public:
         bool init(std::string& url);

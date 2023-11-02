@@ -6,7 +6,7 @@
 #include "config.hpp"
 
 using driver::ConfigDriver;
-using driver::MqttDriver;
+using driver::MqttClient;
 using driver::NetworkController;
 using driver::NetworkEvent;
 
@@ -17,7 +17,7 @@ namespace app
     private:
         ConfigDriver& config_;
         NetworkController controller_;
-        MqttDriver mqtt_;
+        MqttClient mqtt_;
     public:
         NetworkManager() : config_(ConfigDriver::instance()){};
         void init();

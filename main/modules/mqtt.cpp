@@ -1,13 +1,14 @@
 #include "mqtt.hpp"
 
 #include "esp_log.h"
+#include "ginco.pb-c.h"
 
-using driver::MqttDriver;
+using component::MqttClient;
 
 static const char *TAG = "Mqtt";
 void eventHandler(void *arg, esp_event_base_t base, int32_t id, void *data);
 
-bool MqttDriver::init(std::string& url)
+bool MqttClient::init(std::string& url)
 {
     esp_mqtt_client_config_t mqtt_cfg = {};
     mqtt_cfg.broker.address.uri = url.data();
@@ -24,7 +25,42 @@ bool MqttDriver::init(std::string& url)
 
 }
 
-void MqttDriver::handleEvent(esp_event_base_t base, int32_t id, void *data)
+void MqttClient::handleMessage(esp_mqtt_event_handle_t message)
+{
+    if (message->data_len == 0)
+    {
+        return;
+    }
+    /* Full message was received, normal protobuf command */
+    if (message->total_data_len == message->data_len)
+    {
+        Ginco__Command *command = ginco__command__unpack(NULL, message->data_len, message->data);
+        if (!command)
+        {
+            return;
+        }
+
+        /*TODO: Send to correct queue */
+        ginco__command__free_unpacked(command, NULL);
+        return;
+    }
+    /* Upgrade was sent */
+    if (message.current_data_offset == 0)
+    {
+        upgrade_handler_ = std::make_unique<UpgradeHandler>(message);
+        return;
+    }
+
+    upgrade_handler_.handle(message);
+    if (event.current_data_offset + event.data_len == event.total_data_len)
+    {
+        upgrade_handler_.complete();
+        upgrade_handler_ = nullptr; /* Will free the resources */
+    }
+
+}
+
+void MqttClient::handleEvent(esp_event_base_t base, int32_t id, void *data)
 {
     ESP_LOGI(TAG, "base=%s, event_id=%li", base, id);
 
@@ -56,13 +92,8 @@ void MqttDriver::handleEvent(esp_event_base_t base, int32_t id, void *data)
 
     case MQTT_EVENT_DATA:
     {
-        //TODO: Handle event data
-        // if (event->total_data_len == event->data_len)
-        // {
-        //     dispatch(reinterpret_cast<uint8_t *>(event->data), event->data_len);
-        //     return;
-        // }
-        // process(*event);
+        esp_mqtt_event_handle_t event = reinterpret_cast<esp_mqtt_event_handle_t>(data);
+        handleMessage(event);
         break;
     }
     case MQTT_EVENT_ERROR:
@@ -74,7 +105,7 @@ void MqttDriver::handleEvent(esp_event_base_t base, int32_t id, void *data)
     }
 }
 
-void MqttDriver::sendString(std::string data)
+void MqttClient::sendString(std::string data)
 {
     esp_mqtt_client_publish(client_, "ginco_bridge/status", data.data(), data.length(), 0, 0);
 }
@@ -82,6 +113,6 @@ void MqttDriver::sendString(std::string data)
 void eventHandler(void *arg, esp_event_base_t base, int32_t id, void *data)
 {
     assert(arg != nullptr);
-    MqttDriver* controller = reinterpret_cast<MqttDriver*>(arg);
+    MqttClient* controller = reinterpret_cast<MqttClient*>(arg);
     controller->handleEvent(base, id, data);
 }

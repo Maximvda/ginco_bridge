@@ -1,5 +1,4 @@
-#ifndef _SMP_VARINT_H_
-#define _SMP_VARINT_H_
+#pragma once
 
 #ifdef __cplusplus
 extern "C" {
@@ -11,6 +10,4 @@ uint32_t smp_varint_encoding_length(uint32_t value);
 
 #ifdef __cplusplus
 }
-#endif
-
 #endif
