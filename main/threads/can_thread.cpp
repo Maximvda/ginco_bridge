@@ -14,12 +14,12 @@ const static char *TAG = "can thread";
 void CanTask::onStart()
 {
     ESP_LOGI(TAG, "started.");
-    can_driver_.init();
+    can_driver.init();
 }
 
 void CanTask::onTimeout()
 {
-    can_driver_.tick();
+    // can_driver_.tick();
 }
 
 void CanTask::handle(Message &message)
@@ -37,9 +37,9 @@ void CanTask::handle(Message &message)
     }
     case EVENT_CAN_TRANSMIT:
     {
-        if (auto mes = message.takeValue<twai_message_t>())
+        if (auto mes = message.takeValue<GincoMessage>())
         {
-            can_driver_.transmit(*mes.get());
+            can_driver.transmit(*mes.get());
         }
         break;
     }

@@ -13,13 +13,12 @@ namespace driver::can
 
     class CanDriver
     {
-    private:
-        GincoMessage last_message_;
     public:
         void init();
         void tick();
 
-        bool transmit(const GincoMessage &message);
+        /* When blocking is true we'll wait for an acknowledge to be received! */
+        bool transmit(GincoMessage &message, bool blocking = false);
     };
 
 }

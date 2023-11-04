@@ -12,4 +12,6 @@ void app_main(void)
     driver::ConfigDriver::instance();
     /* Startup the tasks */
     app::Supervisor::createTask();
+    /*TODO SOMEHWER! MARK AS VALID FW*/
+    // esp_ota_mark_app_valid_cancel_rollback
 }

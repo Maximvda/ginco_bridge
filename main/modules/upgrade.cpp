@@ -4,11 +4,16 @@
 
 #include "varint_decode.h"
 #include "ginco.pb-c.h"
+#include "ginco_types.hpp"
+
+#include "supervisor.hpp"
 
 static const char *TAG = "Upgrader";
 
 using component::UpgradeHandler;
 using component::Upgrader;
+using data::GincoMessage;
+using data::Function;
 
 /* Forward delcaration */
 class SelfUpgrader : public Upgrader
@@ -25,6 +30,9 @@ class SelfUpgrader : public Upgrader
         void fail();
 };
 class CanUpgrader : public Upgrader {
+    private:
+        GincoMessage message_;
+        uint32_t mes_counter_ {0};
     public:
         bool init(Ginco__Upgrade& command);
         bool receive(const uint8_t * data, uint32_t len);
@@ -136,55 +144,47 @@ void SelfUpgrader::fail()
 
 bool CanUpgrader::init(Ginco__Upgrade& command)
 {
-    /* TODO: Send can message*/
+    message_.source_id = command.device_id;
+    message_.function = Function::UPGRADE;
+    message_.data = command.image_size;
+    message_.data_length = 8;
+    ESP_LOGI(TAG, "image size %lu    %llu", command.image_size, message_.data);
+    message_.send(true);
+    ESP_LOGI(TAG, "Start acknowledged");
     return true;
 };
 
 bool CanUpgrader::receive(const uint8_t *data, uint32_t len)
 {
-//     uint64_t buffer;
-//     uint8_t retries = {0};
-//     while (len > 8)
-//     {
-//         len -= 8;
-//         buffer = 0;
-//         for (int i = 0; i < 8; i++)
-//         {
-//             buffer += (*data << 8 * i);
-//             ++data;
-//         }
-//         can_message.data = buffer;
-//         can_message.buffer_size = 8;
-//         while (!driver::can::transmit(can_message, true))
-//         {
-//             retries += 1;
-//             ESP_LOGI(TAG, "Retry for upgrade %u", retries);
-//         }
-//     }
-//     buffer = 0;
-//     for (int i = 0; i < 8; i++)
-//     {
-//         buffer += (*data << 8 * i);
-//         ++data;
-//     }
-//     can_message.data = buffer;
-//     can_message.buffer_size = 8;
-//     while (!driver::can::transmit(can_message, true))
-//     {
-//         retries += 1;
-//         ESP_LOGI(TAG, "Retry for upgrade %u", retries);
-//     }
+    /* After this we'll transfer the FW image*/
+    message_.function = Function::FW_IMAGE;
+    message_.data_length = 8;
+    while (len > 8)
+    {
+        mes_counter_++;
+        if ((mes_counter_ % 1000) == 0)
+        {
+            ESP_LOGI(TAG, "sent %lu", mes_counter_);
+        }
+        len -= 8;
+        memcpy(&message_.data, data, 8);
+        data += 8;
+        message_.send(true);
+    }
 
-    return true;
+    memcpy(&message_.data, data, len);
+    message_.data_length = len;
+    return message_.send(true);
 };
 
 void CanUpgrader::complete()
 {
-    // fail();
+    message_.function = Function::UPGRADE_FINISHED;
+    message_.send(true);
 };
 
 void CanUpgrader::fail()
 {
-    // Transmit ending message
-    // driver::can::transmit(can_message, true);
+    message_.function = Function::UPGRADE_FAILED;
+    message_.send(true);
 };

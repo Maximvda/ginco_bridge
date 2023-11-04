@@ -22,16 +22,16 @@ namespace app
         void onTimeout() override;
         Milliseconds queueTimeout() override { return 10; };
 
-        CanDriver can_driver_;
-
     public:
+        CanDriver can_driver;
+
         CanTask(uint32_t priority) : StandardTask(priority){};
 
         const char *name() const override { return "Can"; }
 
         bool transmit(GincoMessage &message)
         {
-            return post(EVENT_CAN_TRANSMIT, std::make_unique<twai_message_t>(message.canMessage()));
+            return post(EVENT_CAN_TRANSMIT, std::make_unique<GincoMessage>(message));
         }
 
         bool frameReady(const GincoMessage &message)

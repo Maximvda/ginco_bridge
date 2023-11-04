@@ -39,11 +39,24 @@ void CanDriver::init()
     ESP_LOGI(TAG, "failure starting");
 }
 
-bool CanDriver::transmit(const GincoMessage &can_mes)
+bool CanDriver::transmit(GincoMessage &can_mes, bool blocking)
 {
-    last_message_ = can_mes;
-    esp_err_t res = twai_transmit(&last_message_.canMessage(), 0);
-    ESP_LOGI(TAG, "Response from transmit %d", res);
+    esp_err_t res = twai_transmit(&can_mes.canMessage(), 50);
+    if (blocking && res == ESP_OK)
+    {
+        twai_message_t message;
+        if(twai_receive(&message, 5000) == ESP_OK)
+        {
+            auto compare = GincoMessage(message);
+            return compare.isAcknowledge(can_mes);
+        }
+        ESP_LOGW(TAG, "Failed to receive acknowledge!");
+        return false;
+    }
+    if (res != ESP_OK)
+    {
+        ESP_LOGW(TAG, "FAiled to transmit message");
+    }
     return res == ESP_OK;
 }
 

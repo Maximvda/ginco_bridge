@@ -15,6 +15,8 @@ namespace data
         PAUSE_EFFECT,
         UPGRADE,
         FW_IMAGE,
+        UPGRADE_FINISHED,
+        UPGRADE_FAILED,
         REQUEST_ADDRESS,
         REQUEST_STATE = 0xFF,
     };
@@ -39,6 +41,13 @@ namespace data
         uint8_t index_ {0};
         twai_message_t can_message_;
 
+    public:
+        uint8_t source_id {0};
+        Function function;
+        uint64_t data;
+        uint8_t data_length {0};
+        GincoMessage(){};
+
         uint32_t id() const
         {
             return (
@@ -51,13 +60,6 @@ namespace data
                 static_cast<uint8_t>(function));
         }
 
-    public:
-        uint8_t source_id {0};
-        Function function;
-        uint64_t data;
-        uint8_t data_length {0};
-        GincoMessage(){};
-
         GincoMessage(twai_message_t message) {
             source_id = (message.identifier >> 18) & 0xFF;
             linked_ = (message.identifier >> 17) & 0x01;
@@ -66,7 +68,7 @@ namespace data
             index_ = (message.identifier >> 8) & 0x1F;
             function = static_cast<Function>(message.identifier & 0xFF);
             data_length = message.data_length_code;
-            data = message.data[0];
+            memcpy(&data, message.data, message.data_length_code);
         };
 
         twai_message_t& canMessage()
@@ -94,7 +96,7 @@ namespace data
             return resp;
         }
 
-        bool send();
+        bool send(bool acknowledge=false);
 
         bool acknowledge(uint8_t length, uint8_t* data)
         {
