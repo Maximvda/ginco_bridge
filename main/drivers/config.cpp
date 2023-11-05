@@ -1,17 +1,22 @@
-#include "config_driver.h"
-
-#include <string.h>
+#include "config.hpp"
 
 #include "nvs_flash.h"
 #include "esp_log.h"
 
 const static char* TAG = "config";
-static nvs_handle_t my_handle;
-static char string_buffer[160] {0};
 
-void config::init(){
+using driver::ConfigDriver;
+
+ConfigDriver& ConfigDriver::instance()
+{
+    static ConfigDriver instance;
+    return instance;
+}
+
+ConfigDriver::ConfigDriver(){
     // Initialize NVS
     esp_err_t err = nvs_flash_init();
+    ESP_LOGI(TAG, "init start");
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ESP_LOGW(TAG, "NVS partition was truncated and needs to be erased");
         // Retry nvs_flash_init
@@ -19,32 +24,73 @@ void config::init(){
         err = nvs_flash_init();
     }
     ESP_ERROR_CHECK( err );
-
-    ESP_LOGI(TAG, "Opening Non-Volatile Storage (NVS) handle... ");
-    err = nvs_open("storage", NVS_READWRITE, &my_handle);
+    err = nvs_open("storage", NVS_READWRITE, &nvs_handle_);
+    ESP_LOGI(TAG, "handle opened");
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Error (%s) opening NVS handle!\n", esp_err_to_name(err));
     }
-    ESP_LOGI(TAG, "init done");
+    /* Initialise unique strings for each key!! */
+    key_names_[static_cast<uint16_t>(ConfigKey::MQTT_URL)] = "MQTT_URL";
+    key_names_[static_cast<uint16_t>(ConfigKey::WIFI_CONFIGURED)] = "CONFIGURED";
+
+    ESP_LOGI(TAG, "loading keys");
+    /* Load all values from NVS */
+    getString(ConfigKey::MQTT_URL);
+    getBool(ConfigKey::WIFI_CONFIGURED);
+    ESP_LOGI(TAG, "keys loaded");
 }
 
-uint8_t config::get_key(const char* key){
-    int8_t value {0};
-    nvs_get_i8(my_handle, key, &value);
-    return static_cast<uint8_t>(value);
+void ConfigDriver::setKey(const ConfigKey key, data_variant data)
+{
+    auto guard = m_.guard();
+    /* Key should always be defined in our map*/
+    assert(config_data_.find(key) != config_data_.end());
+    if (std::holds_alternative<bool>(data))
+    {
+        config_data_[key] = data;
+        setUint8(key, static_cast<uint8_t>(std::get<bool>(data)));
+    }
+    else if (std::holds_alternative<std::string>(data))
+    {
+        config_data_[key] = data;
+        setString(key, std::get<std::string>(data));
+    }
 }
 
-void config::set_key(const char* key, uint8_t value){
-    nvs_set_i8(my_handle, key, value);
-    nvs_commit(my_handle);
+void ConfigDriver::getString(const ConfigKey key)
+{
+    size_t required_size;
+    const char* key_name = key_names_[static_cast<uint16_t>(key)].data();
+    nvs_get_str(nvs_handle_, key_name, nullptr, &required_size);
+    char data[required_size];
+    nvs_get_str(nvs_handle_, key_name, data, &required_size);
+    config_data_[key] = std::string(data);
 }
 
-char* config::get_string(const char* key){
-    size_t length = static_cast<size_t>(sizeof(string_buffer));
-    return nvs_get_str(my_handle, key, string_buffer, &length) == ESP_OK ? string_buffer : NULL;
+void ConfigDriver::setString(const ConfigKey key, std::string value){
+    const char* key_name = key_names_[static_cast<uint16_t>(key)].data();
+    nvs_set_str(nvs_handle_, key_name, value.data());
+    nvs_commit(nvs_handle_);
 }
 
-void config::set_string(const char* key, const char* value){
-    nvs_set_str(my_handle, key, value);
-    nvs_commit(my_handle);
+void ConfigDriver::getBool(const ConfigKey key)
+{
+    const char* key_name = key_names_[static_cast<uint16_t>(key)].data();
+    uint8_t value {0};
+    nvs_get_u8(nvs_handle_, key_name, &value);
+    config_data_[key] = value == 1;
+}
+
+void ConfigDriver::setUint8(const ConfigKey key, uint8_t value){
+    const char* key_name = key_names_[static_cast<uint16_t>(key)].data();
+    nvs_set_i8(nvs_handle_, key_name, value);
+    nvs_commit(nvs_handle_);
+}
+
+void ConfigDriver::getUint8(const ConfigKey key)
+{
+    const char* key_name = key_names_[static_cast<uint16_t>(key)].data();
+    uint8_t value {0};
+    nvs_get_u8(nvs_handle_, key_name, &value);
+    config_data_[key] = value;
 }
