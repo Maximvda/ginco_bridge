@@ -16,7 +16,6 @@ namespace data
         UPGRADE,
         FW_IMAGE,
         UPGRADE_FINISHED,
-        UPGRADE_FAILED,
         REQUEST_ADDRESS,
         REQUEST_STATE = 0xFF,
     };
@@ -46,64 +45,23 @@ namespace data
         Function function;
         uint64_t data;
         uint8_t data_length {0};
+
         GincoMessage(){};
+        GincoMessage(const twai_message_t& message);
 
-        uint32_t id() const
-        {
-            return (
-                (event_ ? 1 << 26 : 0) +
-                (source_id << 18) +
-                (linked_ ? 1 << 17 : 0) +
-                (ack_ ? 1 << 16 : 0) +
-                (feature_type_ << 13) +
-                (index_ << 8) +
-                static_cast<uint8_t>(function));
-        }
+        uint32_t id() const;
 
-        GincoMessage(twai_message_t message) {
-            source_id = (message.identifier >> 18) & 0xFF;
-            linked_ = (message.identifier >> 17) & 0x01;
-            ack_ = (message.identifier >> 16) & 0x01;
-            feature_type_ = (message.identifier >> 13) & 0x07;
-            index_ = (message.identifier >> 8) & 0x1F;
-            function = static_cast<Function>(message.identifier & 0xFF);
-            data_length = message.data_length_code;
-            memcpy(&data, message.data, message.data_length_code);
-        };
+        twai_message_t& canMessage();
+        GincoMessage acknowledge();
 
-        twai_message_t& canMessage()
-        {
-            can_message_.identifier = id();
-            can_message_.extd = 1;
-            can_message_.data_length_code = data_length;
-            memcpy(can_message_.data, &data, data_length);
-            return can_message_;
-        }
+        bool isAcknowledge(GincoMessage &other);
+
+        bool send(bool acknowledge=false);
 
         bool operator==(GincoMessage &lhs)
         {
             return lhs.id() == id();
         }
-
-        bool acknowledge();
-
-        bool isAcknowledge(GincoMessage &other)
-        {
-            // invert the other message and compare id
-            other.ack_ = !other.ack_;
-            bool resp = other == *this;
-            other.ack_ = !other.ack_;
-            return resp;
-        }
-
-        bool send(bool acknowledge=false);
-
-        bool acknowledge(uint8_t length, uint8_t* data)
-        {
-            memcpy(data, data, length);
-            return acknowledge();
-        }
-
     };
 
 }

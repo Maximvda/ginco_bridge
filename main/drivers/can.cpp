@@ -7,8 +7,9 @@ using driver::can::CanDriver;
 
 const static char *TAG = "can driver";
 
-void CanDriver::init()
+void CanDriver::init(MessageCb cb_fnc)
 {
+    message_cb_ = cb_fnc;
     // Initialize configuration structures using macro initializers
     twai_general_config_t g_config = TWAI_GENERAL_CONFIG_DEFAULT(
         GPIO_NUM_5,
@@ -39,13 +40,28 @@ void CanDriver::init()
     ESP_LOGI(TAG, "failure starting");
 }
 
+void CanDriver::tick()
+{
+    twai_message_t message;
+    /* As long as frames are ready process them and aknowledge them! */
+    while(twai_receive(&message, 50) == ESP_OK)
+    {
+        /* Frame received, always aknowledge! TODO: Optimise? */
+        GincoMessage mes_data(message);
+        auto ack = mes_data.acknowledge();
+        transmit(ack); /* Aknowledge sent */
+        /* Handle the message */
+        message_cb_(mes_data);
+    }
+}
+
 bool CanDriver::transmit(GincoMessage &can_mes, bool blocking)
 {
     esp_err_t res = twai_transmit(&can_mes.canMessage(), 50);
     if (blocking && res == ESP_OK)
     {
         twai_message_t message;
-        if(twai_receive(&message, 5000) == ESP_OK)
+        if(twai_receive(&message, 1000) == ESP_OK)
         {
             auto compare = GincoMessage(message);
             return compare.isAcknowledge(can_mes);
@@ -55,21 +71,7 @@ bool CanDriver::transmit(GincoMessage &can_mes, bool blocking)
     }
     if (res != ESP_OK)
     {
-        ESP_LOGW(TAG, "FAiled to transmit message");
+        ESP_LOGW(TAG, "transmit failed %i", res);
     }
     return res == ESP_OK;
-}
-
-void CanDriver::tick()
-{
-    twai_message_t message;
-    if (!twai_receive(&message, 0) == ESP_OK)
-    {
-        /* No frame received */
-        return;
-    }
-    GincoMessage ginco_mes(message);
-    ESP_LOGI(TAG, "frame rec: %u : %u", ginco_mes.source_id, static_cast<uint>(ginco_mes.function));
-    /* Frame received so send to correct place */
-    app::taskFinder().ginco().frameReady(message);
 }

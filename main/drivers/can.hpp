@@ -1,5 +1,8 @@
 #pragma once
 
+/* std includes */
+#include <functional>
+
 /* Esp includes */
 #include "driver/twai.h"
 
@@ -13,8 +16,11 @@ namespace driver::can
 
     class CanDriver
     {
+    private:
+        using MessageCb = std::function<void(const GincoMessage& mes)>;
+        MessageCb message_cb_;
     public:
-        void init();
+        void init(MessageCb cb_fnc);
         void tick();
 
         /* When blocking is true we'll wait for an acknowledge to be received! */

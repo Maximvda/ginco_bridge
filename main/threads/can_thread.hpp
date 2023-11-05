@@ -17,16 +17,19 @@ namespace app
     {
 
     private:
+
         void handle(utils::Message &) override;
         void onStart() override;
-        void onTimeout() override;
+        void tick() override;
         Milliseconds queueTimeout() override { return 10; };
+
+        void handleCanMes(const GincoMessage& mes);
 
     public:
         CanDriver can_driver;
+        bool upgrading {false};
 
         CanTask(uint32_t priority) : StandardTask(priority){};
-
         const char *name() const override { return "Can"; }
 
         bool transmit(GincoMessage &message)
@@ -34,10 +37,6 @@ namespace app
             return post(EVENT_CAN_TRANSMIT, std::make_unique<GincoMessage>(message));
         }
 
-        bool frameReady(const GincoMessage &message)
-        {
-            return post(EVENT_CAN_RECEIVED, std::make_unique<GincoMessage>(message));
-        }
     };
 
 }

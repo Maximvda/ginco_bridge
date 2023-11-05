@@ -15,7 +15,7 @@ using component::Upgrader;
 using data::GincoMessage;
 using data::Function;
 
-/* Forward delcaration */
+
 class SelfUpgrader : public Upgrader
 {
     private:
@@ -29,6 +29,7 @@ class SelfUpgrader : public Upgrader
         void complete();
         void fail();
 };
+
 class CanUpgrader : public Upgrader {
     private:
         GincoMessage message_;
@@ -144,6 +145,7 @@ void SelfUpgrader::fail()
 
 bool CanUpgrader::init(Ginco__Upgrade& command)
 {
+    app::taskFinder().can().upgrading = true;
     message_.source_id = command.device_id;
     message_.function = Function::UPGRADE;
     message_.data = command.image_size;
@@ -179,12 +181,14 @@ bool CanUpgrader::receive(const uint8_t *data, uint32_t len)
 
 void CanUpgrader::complete()
 {
+    app::taskFinder().can().upgrading = false;
     message_.function = Function::UPGRADE_FINISHED;
-    message_.send(true);
+    message_.send(); /* Don't aknowledge this message */
+    ESP_LOGI(TAG, "finished");
 };
 
 void CanUpgrader::fail()
 {
-    message_.function = Function::UPGRADE_FAILED;
-    message_.send(true);
+    app::taskFinder().can().upgrading = false;
+    /* Init can't fail so no upgrade fail command */
 };
