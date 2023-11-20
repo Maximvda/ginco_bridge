@@ -5,7 +5,7 @@
 #include "supervisor.hpp"
 
 using namespace app;
-using data::Function;
+using data::FeatureType;
 using data::GincoMessage;
 using utils::Message;
 

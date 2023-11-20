@@ -13,7 +13,7 @@ static const char *TAG = "Upgrader";
 using component::UpgradeHandler;
 using component::Upgrader;
 using data::GincoMessage;
-using data::Function;
+using data::ConfigFunction;
 
 
 class SelfUpgrader : public Upgrader
@@ -146,21 +146,19 @@ void SelfUpgrader::fail()
 bool CanUpgrader::init(Ginco__Upgrade& command)
 {
     app::taskFinder().can().upgrading = true;
-    message_.source_id = command.device_id;
-    message_.function = Function::UPGRADE;
-    message_.data = command.image_size;
-    message_.data_length = 8;
-    ESP_LOGI(TAG, "image size %lu    %llu", command.image_size, message_.data);
+    message_.source(command.device_id);
+    message_.function<ConfigFunction>(ConfigFunction::UPGRADE);
+    message_.data<uint32_t>(command.image_size);
+    ESP_LOGI(TAG, "image size %lu    %lu", command.image_size, message_.data<uint32_t>());
     message_.send(true);
     ESP_LOGI(TAG, "Start acknowledged");
+    message_.function<ConfigFunction>(ConfigFunction::FW_IMAGE);
     return true;
 };
 
 bool CanUpgrader::receive(const uint8_t *data, uint32_t len)
 {
     /* After this we'll transfer the FW image*/
-    message_.function = Function::FW_IMAGE;
-    message_.data_length = 8;
     while (len > 8)
     {
         mes_counter_++;
@@ -169,20 +167,19 @@ bool CanUpgrader::receive(const uint8_t *data, uint32_t len)
             ESP_LOGI(TAG, "sent %lu", mes_counter_);
         }
         len -= 8;
-        memcpy(&message_.data, data, 8);
+        message_.data<const uint8_t*>(data, 8);
         data += 8;
         message_.send(true);
     }
 
-    memcpy(&message_.data, data, len);
-    message_.data_length = len;
+    message_.data<const uint8_t*>(data, len);
     return message_.send(true);
 };
 
 void CanUpgrader::complete()
 {
     app::taskFinder().can().upgrading = false;
-    message_.function = Function::UPGRADE_FINISHED;
+    message_.function<ConfigFunction>(ConfigFunction::UPGRADE_FINISHED);
     message_.send(); /* Don't aknowledge this message */
     ESP_LOGI(TAG, "finished");
 };

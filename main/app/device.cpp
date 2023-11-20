@@ -1,6 +1,10 @@
 #include "device.hpp"
 
+/* esp includes */
+#include "esp_log.h"
+
 using app::Device;
+using data::ConfigFunction;
 
 static const char *TAG = {"Device"};
 
@@ -8,29 +12,28 @@ void Device::init()
 {
 
 }
-
-void Device::handleMessage(GincoMessage &message)
+void Device::handleConfig(GincoMessage &message)
 {
+    // switch(message.getFunction<ConfigFunction>())
+    // {
+    //     case ConfigFunction::REQUEST_ADDRESS:
+    //     {
+    //         message.setUpperValue(switches_.size()+1);
+    //         message.setFunction<ConfigFunction>(ConfigFunction::SET_ADDRESS);
+    //         ESP_LOGI(TAG, "giving address %u | %u | %lu", switches_.size()+1, message.data_length, message.value());
+    //         message.send();
+    //         break;
+    //     }
+    //     case ConfigFunction::HEARTBEAT:
+    //     {
+    //         ESP_LOGI(TAG, "heartbeat %u", message.source_id);
+    //         break;
+    //     }
+    //     default:
+    //     {
+    //         ESP_LOGI(TAG, "received config function %u", static_cast<uint8_t>(message.getFunction<ConfigFunction>()));
+    //         assert(0);
+    //         break;
+    //     }
+    // }
 }
-
-// void Device::toggle_switch(uint8_t switch_id){
-//     inputs_[switch_id].toggle();
-// }
-
-// void Device::on_can_message(driver::can::message_t can_mes){
-//     // Not the id of this module so immediately return
-//     // TODO: Configure can driver to filter these messages out!
-//     if (can_mes.id != id)
-//         return;
-
-//     switch(can_mes.feature_type){
-//         case 1:
-//             outputs[can_mes.index].handle_message(can_mes);
-//             break;
-//         case 3:
-//             inputs[can_mes.index].handle_message(can_mes);
-//             break;
-//         default:
-//             break;
-//     }
-// }

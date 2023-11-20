@@ -1,9 +1,15 @@
 #pragma once
 
+/* std includes */
+#include <map>
+
+/* ginco includes */
 #include "config.hpp"
 #include "ginco_types.hpp"
+#include "switch_co.hpp"
 
 using data::GincoMessage;
+using modules::SwitchCo;
 
 namespace app
 {
@@ -11,16 +17,13 @@ namespace app
     {
     private:
         driver::ConfigDriver& config_;
+        std::map<uint8_t, SwitchCo> switches_;
 
     public:
         Device() : config_(driver::ConfigDriver::instance()){};
         void init();
-        void handleMessage(GincoMessage &message);
-        // void heartbeat();
-        // void toggle_switch(uint8_t switch_id);
-        // void double_press_switch(uint8_t switch_id);
-        // void hold_switch(uint8_t switch_id);
-        // void release_switch(uint8_t switch_id);
+        /* Handle config messages */
+        void handleConfig(GincoMessage &message);
     };
 
 } // namespace app;
