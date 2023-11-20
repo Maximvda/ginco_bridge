@@ -25,7 +25,7 @@ namespace driver
     private:
         ConfigDriver();
 
-        using data_variant = std::variant<bool, std::string>;
+        using data_variant = std::variant<bool, std::string, uint8_t>;
 
         nvs_handle_t nvs_handle_;
         std::map<ConfigKey, data_variant> config_data_;
@@ -35,6 +35,7 @@ namespace driver
         Mutex m_;
 
         void setUint8(const ConfigKey key, uint8_t value);
+        void getUint8(const ConfigKey key);
         void setString(const ConfigKey key, std::string value);
         void getString(const ConfigKey key);
         void getBool(const ConfigKey key);
