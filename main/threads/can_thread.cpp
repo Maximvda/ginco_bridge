@@ -5,7 +5,6 @@
 #include "supervisor.hpp"
 
 using namespace app;
-using data::FeatureType;
 using data::GincoMessage;
 using utils::Message;
 
@@ -13,7 +12,6 @@ const static char *TAG = "can thread";
 
 void CanTask::onStart()
 {
-    ESP_LOGI(TAG, "started.");
     can_driver.init(
         [this](const GincoMessage& mes){
             this->handleCanMes(mes);

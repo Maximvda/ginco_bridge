@@ -19,6 +19,8 @@ namespace driver::can
     private:
         using MessageCb = std::function<void(const GincoMessage& mes)>;
         MessageCb message_cb_;
+
+        void start();
     public:
         void init(MessageCb cb_fnc);
         void tick();
