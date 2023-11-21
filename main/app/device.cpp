@@ -21,13 +21,18 @@ void Device::handleConfig(GincoMessage &message)
             /* This sets the upper uint32_t value of can message to switchs id */
             message.data<uint32_t, true>(switches_.size()+1, 1);
             message.function<ConfigFunction>(ConfigFunction::SET_ADDRESS);
-            ESP_LOGI(TAG, "giving address %u | %llu", switches_.size()+1, message.data<uint64_t>());
+            ESP_LOGI(TAG, "giving address %lu | %lu", message.data<uint32_t>(), message.data<uint32_t, true>(1));
             message.send();
             break;
         }
         case ConfigFunction::HEARTBEAT:
         {
             ESP_LOGI(TAG, "heartbeat %u", message.source());
+            break;
+        }
+        case ConfigFunction::SET_ADDRESS:
+        {
+            /* Aknowledge will be received after setting address */
             break;
         }
         default:

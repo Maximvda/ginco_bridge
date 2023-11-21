@@ -48,7 +48,7 @@ void CanDriver::tick()
 {
     twai_message_t message;
     /* As long as frames are ready process them and aknowledge them! */
-    while(twai_receive(&message, 50) == ESP_OK)
+    while(twai_receive(&message, 0) == ESP_OK)
     {
         /* Frame received, always aknowledge! TODO: Optimise? */
         GincoMessage mes_data(message);
